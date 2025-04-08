@@ -1,10 +1,5 @@
----
-
 # 🛡️ Nirbhaya – Women’s Safety App
 
-> A React Native application built to ensure women’s safety using location-based SOS alerts, trusted contact management, news updates, and personal dashboard – all wrapped in a clean, modern UI.
-
----
 
 ## 📲 Features
 
