@@ -7,140 +7,189 @@ import {
   FlatList,
   StyleSheet,
   KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  ActivityIndicator,
 } from "react-native";
-import axios from "axios";
 import Constants from "expo-constants";
-
-const BASE_PROMPT = `
-You are a compassionate and powerful AI built to help women in distress, guide them with resources, legal information, and mental support.
-Respond with kindness, actionable steps, and support links when possible. Be concise and respectful.
-`;
+import axios from "axios";
+import { Ionicons } from "@expo/vector-icons";
 
 const ChatbotScreen = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [fullPrompt, setFullPrompt] = useState(BASE_PROMPT);
+  const [loading, setLoading] = useState(false);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMessage = { role: "user", content: input };
-    const updatedMessages = [...messages, userMessage];
-
-    setMessages(updatedMessages);
+    const userInput = input.trim();
     setInput("");
-    setFullPrompt((prev) => prev + "\nUser: " + input);
+    setLoading(true);
+
+    // Show only the user input in the chat UI
+    const updatedMessages = [...messages, { role: "user", content: userInput }];
+    setMessages(updatedMessages);
 
     try {
-      const res = await axios.post(
-        "https://openrouter.ai/api/v1/chat/completions",
+      const fullPrompt = `You are a compassionate and powerful AI built to help women in distress. Respond with kindness, actionable steps, and support links when possible. Be concise and respectful. User says: ${userInput}`;
+
+      const response = await axios.post(
+        "https://api.groq.com/openai/v1/chat/completions",
         {
-          model: "mistralai/mixtral-8x7b",
+          model: "llama-3.3-70b-versatile",
           messages: [
-            { role: "system", content: fullPrompt },
-            { role: "user", content: input },
+            {
+              role: "user",
+              content: fullPrompt,
+            },
           ],
         },
         {
           headers: {
-            Authorization: `Bearer ${Constants.expoConfig.extra.OPENROUTER_API_KEY}`,
+            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
             "Content-Type": "application/json",
           },
         }
       );
 
-      const aiResponse = res.data.choices[0].message.content;
-      const botMessage = { role: "bot", content: aiResponse };
+      const botReply =
+        response.data.choices?.[0]?.message?.content ||
+        "Sorry, I didn't understand that.";
 
-      setMessages([...updatedMessages, botMessage]);
-    } catch (err) {
+      setMessages([
+        ...updatedMessages,
+        { role: "assistant", content: botReply },
+      ]);
+    } catch (error) {
+      console.error("Groq API error:", error.response?.data || error.message);
       setMessages([
         ...updatedMessages,
         {
-          role: "bot",
-          content: "Something went wrong. Please try again later.",
+          role: "assistant",
+          content: "Oops! Something went wrong. Please try again later.",
         },
       ]);
+    } finally {
+      setLoading(false);
     }
   };
 
+
+
   return (
-    <KeyboardAvoidingView style={styles.container} behavior="padding">
-      <FlatList
-        data={messages}
-        keyExtractor={(_, index) => index.toString()}
-        renderItem={({ item }) => (
-          <View
-            style={[
-              styles.messageBubble,
-              item.role === "user" ? styles.userBubble : styles.botBubble,
-            ]}
-          >
-            <Text style={styles.messageText}>{item.content}</Text>
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <FlatList
+          data={messages}
+          keyExtractor={(_, index) => index.toString()}
+          renderItem={({ item }) => (
+            <View
+              style={[
+                styles.messageBubble,
+                item.role === "user" ? styles.userBubble : styles.botBubble,
+              ]}
+            >
+              <Text style={styles.messageText}>{item.content}</Text>
+            </View>
+          )}
+          contentContainerStyle={{ paddingTop: 10, paddingBottom: 100 }}
+        />
+
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#ec407a" />
+            <Text style={styles.loadingText}>Thinking...</Text>
           </View>
         )}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      />
-      <View style={styles.inputContainer}>
-        <TextInput
-          value={input}
-          onChangeText={setInput}
-          placeholder="Ask something..."
-          style={styles.input}
-        />
-        <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
-          <Text style={{ color: "#fff" }}>Send</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="Type your message..."
+            placeholderTextColor="#888"
+            style={styles.input}
+            multiline
+          />
+          <TouchableOpacity onPress={sendMessage} style={styles.iconButton}>
+            <Ionicons name="send" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 export default ChatbotScreen;
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+    backgroundColor: "#fff0f5",
+  },
   container: {
     flex: 1,
-    backgroundColor: "#fff0f5",
-    paddingHorizontal: 10,
+    paddingHorizontal: 15,
   },
   messageBubble: {
     marginVertical: 6,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     maxWidth: "80%",
   },
   userBubble: {
     alignSelf: "flex-end",
-    backgroundColor: "#f06292",
+    backgroundColor: "#f8bbd0",
   },
   botBubble: {
     alignSelf: "flex-start",
-    backgroundColor: "#eee",
+    backgroundColor: "#e0e0e0",
   },
   messageText: {
+    fontSize: 15,
     color: "#333",
+    lineHeight: 20,
   },
   inputContainer: {
     flexDirection: "row",
-    position: "absolute",
-    bottom: 10,
-    left: 10,
-    right: 10,
+    alignItems: "flex-end",
+    marginVertical: 10,
     backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 30,
-    elevation: 5,
+    borderColor: "#f48fb1",
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   input: {
     flex: 1,
-    paddingHorizontal: 10,
+    fontSize: 16,
+    maxHeight: 100,
+    color: "#333",
   },
-  sendButton: {
-    backgroundColor: "#f06292",
-    paddingHorizontal: 15,
-    borderRadius: 20,
+  iconButton: {
+    backgroundColor: "#ec407a",
+    borderRadius: 8,
+    padding: 10,
+    marginLeft: 8,
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingLeft: 10,
+    marginBottom: 5,
+  },
+  loadingText: {
+    marginLeft: 8,
+    color: "#ec407a",
+    fontStyle: "italic",
   },
 });
