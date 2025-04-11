@@ -106,6 +106,11 @@ expo start
 
 ---
 
+### To build the apk
+---
+> npx eas build --platform android --profndroid --profile apndroid --profile apk 
+---
+
 ## 📸 Screenshots
 
 [You can include screenshots for Home, Contacts, Articles views here in your repo or app store listing]

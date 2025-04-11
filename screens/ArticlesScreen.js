@@ -57,7 +57,7 @@ const ArticlesScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Latest Women's Safety News</Text>
+      <Text style={styles.header}>Articles</Text>
       {loading ? (
         <ActivityIndicator size="large" color="#FF5A5F" />
       ) : (
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   },
   header: {
     fontSize: 22,
-    fontWeight: "bold",
+    fontWeight: 500,
     marginBottom: 16,
     color: "#333",
   },
