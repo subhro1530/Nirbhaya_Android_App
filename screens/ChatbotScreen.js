@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -11,40 +11,42 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
-import Constants from "expo-constants";
 import axios from "axios";
 import { Ionicons } from "@expo/vector-icons";
+
+const suggestions = [
+  "I feel unsafe walking home.",
+  "How can I report abuse anonymously?",
+  "What are my legal rights at work?",
+];
 
 const ChatbotScreen = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const flatListRef = useRef(null);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userInput = input.trim();
+    const userText = input.trim();
     setInput("");
     setLoading(true);
 
-    // Show only the user input in the chat UI
-    const updatedMessages = [...messages, { role: "user", content: userInput }];
+    const updatedMessages = [...messages, { role: "user", content: userText }];
     setMessages(updatedMessages);
+    flatListRef.current?.scrollToEnd({ animated: true });
+
+    const userPrompt = `You are a compassionate and powerful AI built to help women in distress. Respond with kindness, actionable steps, and support links when possible. Be concise and respectful. User says: ${userText}`;
 
     try {
-      const fullPrompt = `You are a compassionate and powerful AI built to help women in distress. Respond with kindness, actionable steps, and support links when possible. Be concise and respectful. User says: ${userInput}`;
-
       const response = await axios.post(
         "https://api.groq.com/openai/v1/chat/completions",
         {
           model: "llama-3.3-70b-versatile",
-          messages: [
-            {
-              role: "user",
-              content: fullPrompt,
-            },
-          ],
+          messages: [{ role: "user", content: userPrompt }],
         },
         {
           headers: {
@@ -62,6 +64,7 @@ const ChatbotScreen = () => {
         ...updatedMessages,
         { role: "assistant", content: botReply },
       ]);
+      flatListRef.current?.scrollToEnd({ animated: true });
     } catch (error) {
       console.error("Groq API error:", error.response?.data || error.message);
       setMessages([
@@ -71,12 +74,11 @@ const ChatbotScreen = () => {
           content: "Oops! Something went wrong. Please try again later.",
         },
       ]);
+      flatListRef.current?.scrollToEnd({ animated: true });
     } finally {
       setLoading(false);
     }
   };
-
-
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -84,21 +86,44 @@ const ChatbotScreen = () => {
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <FlatList
-          data={messages}
-          keyExtractor={(_, index) => index.toString()}
-          renderItem={({ item }) => (
-            <View
-              style={[
-                styles.messageBubble,
-                item.role === "user" ? styles.userBubble : styles.botBubble,
-              ]}
-            >
-              <Text style={styles.messageText}>{item.content}</Text>
-            </View>
-          )}
-          contentContainerStyle={{ paddingTop: 10, paddingBottom: 100 }}
-        />
+        {messages.length === 0 ? (
+          <ScrollView
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              padding: 20,
+            }}
+          >
+            <Text style={styles.welcome}>How can I help you today?</Text>
+            {suggestions.map((text, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.suggestionButton}
+                onPress={() => setInput(text)}
+              >
+                <Text style={styles.suggestionText}>{text}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(_, index) => index.toString()}
+            renderItem={({ item }) => (
+              <View
+                style={[
+                  styles.messageBubble,
+                  item.role === "user" ? styles.userBubble : styles.botBubble,
+                ]}
+              >
+                <Text style={styles.messageText}>{item.content}</Text>
+              </View>
+            )}
+            contentContainerStyle={{ paddingTop: 10, paddingBottom: 100 }}
+          />
+        )}
 
         {loading && (
           <View style={styles.loadingContainer}>
@@ -136,6 +161,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 15,
+  },
+  welcome: {
+    fontSize: 18,
+    marginBottom: 20,
+    color: "#333",
+    textAlign: "center",
+  },
+  suggestionButton: {
+    backgroundColor: "#f8bbd0",
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 6,
+    alignSelf: "stretch",
+  },
+  suggestionText: {
+    color: "#333",
+    fontSize: 15,
   },
   messageBubble: {
     marginVertical: 6,
