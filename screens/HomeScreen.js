@@ -8,6 +8,7 @@ import {
   ScrollView,
   Image,
 } from "react-native";
+import { Linking } from "react-native";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
