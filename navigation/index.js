@@ -16,7 +16,6 @@ import TrustedContactsScreen from "../screens/ContactsScreen";
 import ContentScreen from "../screens/ContentScreen";
 import MoreScreen from "../screens/MoreScreen";
 import ContextScreen from "../screens/ContextScreen"; // will be opened from More
-import EmergencyMapScreen from "../screens/EmergencyMapScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -124,7 +123,6 @@ export default function RootNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="Home" component={MainTabs} />
-        <Stack.Screen name="EmergencyMap" component={EmergencyMapScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

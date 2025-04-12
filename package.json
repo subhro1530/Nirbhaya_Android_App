@@ -22,7 +22,11 @@
     "expo-constants": "~17.0.8",
     "expo-image-picker": "~16.0.6",
 <<<<<<< HEAD
+<<<<<<< HEAD
     "expo-location": "~18.0.10",
+=======
+    "expo-location": "^18.0.10",
+>>>>>>> parent of 45e477c (Add EmergencyMapScreen and integrate with MoreScreen for navigation)
     "expo-sensors": "~14.0.2",
 =======
     "expo-location": "^18.0.10",
@@ -33,7 +37,7 @@
     "react-native-dotenv": "^3.4.11",
     "react-native-draggable-flatlist": "^4.0.2",
     "react-native-gesture-handler": "^2.25.0",
-    "react-native-maps": "1.18.0",
+    "react-native-maps": "^1.20.1",
     "react-native-paper": "^5.13.1",
     "react-native-reanimated": "^3.17.3",
     "react-native-root-toast": "^4.0.1",
