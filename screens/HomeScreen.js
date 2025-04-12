@@ -8,6 +8,7 @@ import {
   ScrollView,
   Image,
 } from "react-native";
+import { Accelerometer } from "expo-sensors";
 import { Linking } from "react-native";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
@@ -33,6 +34,40 @@ const HomeScreen = ({ route }) => {
     address: "Not set",
     avatar: null,
   });
+
+  useEffect(() => {
+    let lastX = 0,
+      lastY = 0,
+      lastZ = 0;
+    let shakeCount = 0;
+
+    const subscription = Accelerometer.addListener((accelerometerData) => {
+      const { x, y, z } = accelerometerData;
+
+      const deltaX = Math.abs(x - lastX);
+      const deltaY = Math.abs(y - lastY);
+      const deltaZ = Math.abs(z - lastZ);
+
+      if (deltaX + deltaY + deltaZ > 2.5) {
+        shakeCount++;
+
+        if (shakeCount >= 2) {
+          handleSendSOS();
+          shakeCount = 0;
+        }
+      }
+
+      lastX = x;
+      lastY = y;
+      lastZ = z;
+    });
+
+    Accelerometer.setUpdateInterval(300);
+
+    return () => {
+      subscription && subscription.remove();
+    };
+  }, [location, contacts]);
 
   useEffect(() => {
     loadProfile();
