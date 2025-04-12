@@ -46,6 +46,12 @@ export default function MoreScreen({ navigation }) {
       screen: "Articles",
       gradient: ["#F7971E", "#FFD200"],
     },
+    {
+      label: "Emergency Map",
+      icon: <Ionicons name="map-outline" size={26} color="#fff" />,
+      screen: "EmergencyMap",
+      gradient: ["#FF5F6D", "#FFC371"],
+    },
   ];
 
   return (
