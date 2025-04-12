@@ -74,26 +74,38 @@ export default function EmergencyMapScreen() {
 
   // Toggle bookmark for a place
   const toggleBookmark = async (place) => {
-    const exists = bookmarks.find(
+    // Check if the place is already bookmarked
+    const exists = bookmarks.some(
       (b) => b.properties.place_id === place.properties.place_id
     );
-    let updatedBookmarks = [...bookmarks];
-    if (exists) {
-      updatedBookmarks = updatedBookmarks.filter(
-        (b) => b.properties.place_id !== place.properties.place_id
-      );
-    } else {
-      updatedBookmarks.push(place);
-    }
+
+    // If exists, remove it; otherwise, add it
+    const updatedBookmarks = exists
+      ? bookmarks.filter(
+          (b) => b.properties.place_id !== place.properties.place_id
+        )
+      : [...bookmarks, place];
+
+    // Update state with the new bookmarks list
     setBookmarks(updatedBookmarks);
-    await AsyncStorage.setItem("bookmarks", JSON.stringify(updatedBookmarks)); // Save to local storage
+
+    // Save the updated bookmarks to AsyncStorage
+    try {
+      await AsyncStorage.setItem("bookmarks", JSON.stringify(updatedBookmarks));
+    } catch (error) {
+      Alert.alert("Error", "Failed to save bookmarks.");
+    }
   };
 
   // Load bookmarks from local storage
   const loadBookmarks = async () => {
-    const storedBookmarks = await AsyncStorage.getItem("bookmarks");
-    if (storedBookmarks) {
-      setBookmarks(JSON.parse(storedBookmarks));
+    try {
+      const storedBookmarks = await AsyncStorage.getItem("bookmarks");
+      if (storedBookmarks) {
+        setBookmarks(JSON.parse(storedBookmarks));
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to load bookmarks.");
     }
   };
 
@@ -139,7 +151,7 @@ export default function EmergencyMapScreen() {
             <TouchableOpacity onPress={() => toggleBookmark(item)}>
               <MaterialCommunityIcons
                 name={
-                  bookmarks.find(
+                  bookmarks.some(
                     (b) => b.properties.place_id === item.properties.place_id
                   )
                     ? "bookmark"
@@ -307,7 +319,7 @@ const styles = StyleSheet.create({
     backgroundColor: "orangered",
   },
   categoryText: {
+    fontSize: 12,
     color: "#fff",
-    fontWeight: "600",
   },
 });
