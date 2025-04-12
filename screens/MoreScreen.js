@@ -48,15 +48,20 @@ export default function MoreScreen({ navigation }) {
     },
     {
       label: "Emergency Map",
-      icon: <MaterialIcons name="article" size={26} color="#fff" />,
+      icon: <MaterialIcons name="map" size={26} color="#fff" />,
       screen: "EmergencyMap",
-      gradient: ["#F7971E", "#FFD200"],
+      gradient: ["#009999", "#FFD200"],
+    },
+    {
+      label: "Walk Mode",
+      icon: <FontAwesome5 name="walking" size={26} color="#fff" />,
+      screen: "WalkMode",
+      gradient: ["#000000", "#FFD200"],
     },
   ];
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Explore More</Text>
       <View style={styles.grid}>
         {options.map((item, index) => (
           <TouchableOpacity
@@ -85,13 +90,6 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     paddingHorizontal: 16,
     flexGrow: 1,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#2C3E50",
-    textAlign: "center",
-    marginBottom: 25,
   },
   grid: {
     flexDirection: "row",

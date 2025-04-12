@@ -15,6 +15,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { ContactsContext } from "../ContactsContext";
 import Toast from "react-native-root-toast";
+import { Accelerometer } from "expo-sensors";
+import * as SMS from "expo-sms";
 
 const STORAGE_KEY = "@user_profile";
 
@@ -38,6 +40,29 @@ const HomeScreen = ({ route }) => {
     loadProfile();
     getLocation();
   }, []);
+
+  useEffect(() => {
+    let lastShake = 0;
+    const threshold = 1.5; // Adjust for sensitivity (higher = more shake)
+    const delayBetweenShakes = 4000; // 4 seconds
+
+    const subscription = Accelerometer.addListener((accelerometerData) => {
+      const { x, y, z } = accelerometerData;
+      const totalForce = Math.sqrt(x * x + y * y + z * z);
+
+      if (totalForce > threshold) {
+        const now = Date.now();
+        if (now - lastShake > delayBetweenShakes) {
+          lastShake = now;
+          handleSendSOS();
+        }
+      }
+    });
+
+    Accelerometer.setUpdateInterval(300); // Check every 300ms
+
+    return () => subscription && subscription.remove();
+  }, [location, contacts]);
 
   const getLocation = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -73,7 +98,7 @@ const HomeScreen = ({ route }) => {
     }
   };
 
-  const handleSendSOS = () => {
+  const handleSendSOS = async () => {
     if (!location) {
       alert("Location not available");
       return;
@@ -88,15 +113,16 @@ const HomeScreen = ({ route }) => {
       return;
     }
 
-    contacts.forEach((contact) => {
-      const url = `whatsapp://send?phone=${
-        contact.phone
-      }&text=${encodeURIComponent(message)}`;
-      Linking.openURL(url).catch(() => {
-        alert("Make sure WhatsApp is installed");
-      });
-    });
+    const numbers = contacts.map((c) => c.phone);
+
+    const isAvailable = await SMS.isAvailableAsync();
+    if (isAvailable) {
+      await SMS.sendSMSAsync(numbers, message);
+    } else {
+      alert("SMS is not available on this device.");
+    }
   };
+
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({

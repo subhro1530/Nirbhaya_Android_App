@@ -17,6 +17,7 @@ import ContentScreen from "../screens/ContentScreen";
 import MoreScreen from "../screens/MoreScreen";
 import ContextScreen from "../screens/ContextScreen"; // will be opened from More
 import EmergencyMapScreen from "../screens/EmergencyMapScreen";
+import WalkModeScreen from "../screens/WalkModeScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -27,7 +28,7 @@ const MoreStack = createNativeStackNavigator();
 function MoreStackNavigator() {
   return (
     <MoreStack.Navigator screenOptions={{ headerShown: true }}>
-      <MoreStack.Screen name="More Home" component={MoreScreen} />
+      <MoreStack.Screen name="Explore More" component={MoreScreen} />
       <MoreStack.Screen name="Context" component={ContextScreen} />
       {/* You can add more screens here later */}
     </MoreStack.Navigator>
@@ -125,6 +126,7 @@ export default function RootNavigator() {
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="Home" component={MainTabs} />
         <Stack.Screen name="EmergencyMap" component={EmergencyMapScreen} />
+        <Stack.Screen name="WalkMode" component={WalkModeScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

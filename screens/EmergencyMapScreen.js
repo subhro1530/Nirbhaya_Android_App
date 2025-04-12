@@ -9,12 +9,15 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
+  Linking,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, Callout } from "react-native-maps";
 import * as Location from "expo-location";
 import { MaterialCommunityIcons, FontAwesome } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // For local storage
-import { GEOAPIFY_API_KEY } from "@env"; // Your API key
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { GEOAPIFY_API_KEY } from "@env";
+
+import BookmarkList from "../components/BookmarkList"; // ✅
 
 const { height } = Dimensions.get("window");
 
@@ -26,7 +29,7 @@ const categories = [
     filter: "emergency.fire_station",
     icon: "fire-truck",
   },
-  { name: "Restrooms", filter: "amenity.toilets", icon: "toilet" }, // Added restrooms
+  { name: "Restrooms", filter: "amenity.toilets", icon: "toilet" },
 ];
 
 export default function EmergencyMapScreen() {
@@ -35,7 +38,7 @@ export default function EmergencyMapScreen() {
   const [places, setPlaces] = useState([]);
   const [view, setView] = useState("map");
   const [bookmarks, setBookmarks] = useState([]);
-  const [loading, setLoading] = useState(false); // For loading state
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -53,9 +56,8 @@ export default function EmergencyMapScreen() {
     }
   }, [selectedCategory, location]);
 
-  // Fetch nearby places from API
   const fetchNearbyPlaces = async (type) => {
-    setLoading(true); // Show loading spinner
+    setLoading(true);
     const url = `https://api.geoapify.com/v2/places?categories=${type}&filter=circle:${location.longitude},${location.latitude},5000&limit=20&apiKey=${GEOAPIFY_API_KEY}`;
     try {
       const res = await fetch(url);
@@ -63,33 +65,35 @@ export default function EmergencyMapScreen() {
       if (data.features) {
         setPlaces(data.features);
       } else {
-        setPlaces([]); // No results, set empty array
+        setPlaces([]);
       }
     } catch (error) {
       Alert.alert("Error", "Failed to fetch places.");
     } finally {
-      setLoading(false); // Hide loading spinner
+      setLoading(false);
     }
   };
 
-  // Toggle bookmark for a place
+  const openInGoogleMaps = (lat, lon, label = "") => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}&query_place_id=${label}`;
+    Linking.openURL(url).catch((err) =>
+      Alert.alert("Error", "Couldn't open Google Maps.")
+    );
+  };
+
   const toggleBookmark = async (place) => {
-    // Check if the place is already bookmarked
     const exists = bookmarks.some(
       (b) => b.properties.place_id === place.properties.place_id
     );
 
-    // If exists, remove it; otherwise, add it
     const updatedBookmarks = exists
       ? bookmarks.filter(
           (b) => b.properties.place_id !== place.properties.place_id
         )
       : [...bookmarks, place];
 
-    // Update state with the new bookmarks list
     setBookmarks(updatedBookmarks);
 
-    // Save the updated bookmarks to AsyncStorage
     try {
       await AsyncStorage.setItem("bookmarks", JSON.stringify(updatedBookmarks));
     } catch (error) {
@@ -97,7 +101,6 @@ export default function EmergencyMapScreen() {
     }
   };
 
-  // Load bookmarks from local storage
   const loadBookmarks = async () => {
     try {
       const storedBookmarks = await AsyncStorage.getItem("bookmarks");
@@ -110,10 +113,9 @@ export default function EmergencyMapScreen() {
   };
 
   useEffect(() => {
-    loadBookmarks(); // Load bookmarks when component mounts
+    loadBookmarks();
   }, []);
 
-  // Render category buttons
   const renderCategory = ({ item }) => (
     <TouchableOpacity
       style={[
@@ -127,7 +129,6 @@ export default function EmergencyMapScreen() {
     </TouchableOpacity>
   );
 
-  // Render places list
   const renderPlaceList = () => {
     if (loading) {
       return <ActivityIndicator size="large" color="#3498db" />;
@@ -141,7 +142,16 @@ export default function EmergencyMapScreen() {
         keyExtractor={(item) => item.properties.place_id}
         contentContainerStyle={styles.listContainer}
         renderItem={({ item }) => (
-          <View style={styles.listItem}>
+          <TouchableOpacity
+            style={styles.listItem}
+            onPress={() =>
+              openInGoogleMaps(
+                item.geometry.coordinates[1],
+                item.geometry.coordinates[0],
+                item.properties.name
+              )
+            }
+          >
             <View style={{ flex: 1 }}>
               <Text style={styles.placeName}>{item.properties.name}</Text>
               <Text style={styles.placeAddress}>
@@ -161,7 +171,7 @@ export default function EmergencyMapScreen() {
                 color="#333"
               />
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         )}
       />
     );
@@ -187,16 +197,36 @@ export default function EmergencyMapScreen() {
                 latitude: place.geometry.coordinates[1],
                 longitude: place.geometry.coordinates[0],
               }}
-              title={place.properties.name}
-              description={place.properties.address_line1}
             >
-              <FontAwesome name="map-marker" size={30} color="#e74c3c" />
+              <Callout
+                onPress={() =>
+                  openInGoogleMaps(
+                    place.geometry.coordinates[1],
+                    place.geometry.coordinates[0],
+                    place.properties.name
+                  )
+                }
+              >
+                <View style={{ width: 150 }}>
+                  <Text style={{ fontWeight: "bold" }}>
+                    {place.properties.name}
+                  </Text>
+                  <Text>{place.properties.address_line1}</Text>
+                  <Text style={{ color: "#3498db", marginTop: 4 }}>
+                    Tap to open in Maps
+                  </Text>
+                </View>
+              </Callout>
             </Marker>
           ))}
         </MapView>
       )}
 
       {view === "list" && renderPlaceList()}
+
+      {view === "bookmark" && (
+        <BookmarkList bookmarks={bookmarks} toggleBookmark={toggleBookmark} />
+      )}
 
       <View style={styles.bottomBar}>
         <FlatList
@@ -251,8 +281,8 @@ export default function EmergencyMapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 35, // Padding for notification panel
-    backgroundColor: "#fff", // Changed background to white
+    paddingTop: 35,
+    backgroundColor: "#fff",
   },
   map: {
     flex: 1,
@@ -278,10 +308,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   activeNavBtn: {
-    color: "#000000", // Changed active button color to blue;
+    color: "#000000",
   },
   navText: {
-    color: "#7f8c8d", // Changed text color to grayish
+    color: "#7f8c8d",
     fontSize: 12,
     marginTop: 3,
   },
