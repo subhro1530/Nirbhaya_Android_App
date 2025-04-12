@@ -46,6 +46,12 @@ export default function MoreScreen({ navigation }) {
       screen: "Articles",
       gradient: ["#F7971E", "#FFD200"],
     },
+    {
+      label: "Emergency Map",
+      icon: <MaterialIcons name="article" size={26} color="#fff" />,
+      screen: "EmergencyMap",
+      gradient: ["#F7971E", "#FFD200"],
+    },
   ];
 
   return (
