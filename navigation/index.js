@@ -18,6 +18,7 @@ import MoreScreen from "../screens/MoreScreen";
 import ContextScreen from "../screens/ContextScreen"; // will be opened from More
 import EmergencyMapScreen from "../screens/EmergencyMapScreen";
 import WalkModeScreen from "../screens/WalkModeScreen";
+import SmartSafetyKitScreen from "../screens/SmartSafetyKitScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -127,6 +128,7 @@ export default function RootNavigator() {
         <Stack.Screen name="Home" component={MainTabs} />
         <Stack.Screen name="EmergencyMap" component={EmergencyMapScreen} />
         <Stack.Screen name="WalkMode" component={WalkModeScreen} />
+        <Stack.Screen name="SmartSafetyKit" component={SmartSafetyKitScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

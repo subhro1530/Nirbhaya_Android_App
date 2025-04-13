@@ -58,6 +58,12 @@ export default function MoreScreen({ navigation }) {
       screen: "WalkMode",
       gradient: ["#000000", "#FFD200"],
     },
+    {
+      label: "Smart Safety Kit",
+      icon: <FontAwesome5 name="shield-alt" size={26} color="#fff" />,
+      screen: "SmartSafetyKit",
+      gradient: ["#532899", "#FFD200"],
+    },
   ];
 
   return (
