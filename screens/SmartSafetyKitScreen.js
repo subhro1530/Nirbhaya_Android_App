@@ -27,6 +27,8 @@ export default function SmartSafetyKitScreen() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
+  const alertSentRef = useRef(false);
+
   const tips = [
     "Share your route with a trusted friend before starting.",
     "Keep your phone charged and volume slightly up.",
@@ -63,8 +65,11 @@ export default function SmartSafetyKitScreen() {
   useEffect(() => {
     if (!timerActive) return;
     if (countdown <= 0) {
-      setTimerActive(false);
-      autoAlert();
+      if (!alertSentRef.current) {
+        alertSentRef.current = true; // one-shot guard
+        setTimerActive(false);
+        autoAlert();
+      }
       return;
     }
     const id = setInterval(() => setCountdown((c) => c - 1), 1000);
@@ -111,6 +116,7 @@ export default function SmartSafetyKitScreen() {
       return Alert.alert("Contacts", "Add contacts first.");
     setCountdown(mins * 60);
     setTimerActive(true);
+    alertSentRef.current = false; // reset guard on new timer
     Alert.alert(
       "Safe Timer Active",
       `If you don't cancel in ${mins} minute(s), an alert will be sent.`
@@ -120,6 +126,7 @@ export default function SmartSafetyKitScreen() {
   const cancelSafeTimer = () => {
     setTimerActive(false);
     setCountdown(0);
+    alertSentRef.current = false; // reset guard
   };
 
   const autoAlert = async () => {
@@ -318,7 +325,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFF6F0",
     paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingTop: 48, // more top margin
   },
   title: {
     fontSize: 24,

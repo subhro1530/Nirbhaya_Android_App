@@ -14,6 +14,7 @@ import * as Location from "expo-location";
 import * as SMS from "expo-sms";
 import * as TaskManager from "expo-task-manager";
 import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get("window");
 const LOCATION_TASK_NAME = "background-location-task";
@@ -89,6 +90,7 @@ export default function WalkMode() {
 
     globalTrustedContact = trustedContact;
     globalInterval = interval;
+    await AsyncStorage.setItem("@walkmode_active", "1"); // mark active
 
     const { status: foregroundStatus } =
       await Location.requestForegroundPermissionsAsync();
@@ -161,6 +163,9 @@ export default function WalkMode() {
     setTimer(0);
     if (timerRef.current) clearInterval(timerRef.current);
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+    await AsyncStorage.setItem("@walkmode_active", "0"); // mark inactive
+    globalTrustedContact = ""; // prevent further sends
+    globalLastSentAt = null;
     setQuote("");
     setNextSendIn(0);
   };
@@ -271,12 +276,28 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
     return;
   }
   if (data) {
+    const active = await AsyncStorage.getItem("@walkmode_active");
+    if (active !== "1") return; // do not send when stopped
+
     const { locations } = data;
     const location = locations[0];
+
     if (globalTrustedContact && location) {
-      const message = `📍 Live Location: https://maps.google.com/?q=${location.coords.latitude},${location.coords.longitude}`;
+      // include profile details
+      let profileTxt = "";
+      try {
+        const raw = await AsyncStorage.getItem("@user_profile");
+        if (raw) {
+          const p = JSON.parse(raw);
+          profileTxt = `\nName: ${p.name || "User"} | Blood: ${
+            p.bloodGroup || "-"
+          } | Phone: ${p.phone || "-"}`;
+        }
+      } catch {}
+
+      const message = `📍 Live Location: https://maps.google.com/?q=${location.coords.latitude},${location.coords.longitude}${profileTxt}`;
       await SMS.sendSMSAsync([globalTrustedContact], message);
-      globalLastSentAt = Date.now(); // NEW: mark last sent
+      globalLastSentAt = Date.now();
     }
   }
 });
@@ -288,6 +309,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
+    paddingTop: 48,
   },
   note: {
     color: "#444",

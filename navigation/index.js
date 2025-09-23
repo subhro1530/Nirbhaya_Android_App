@@ -30,7 +30,13 @@ const MoreStack = createNativeStackNavigator();
 // More Stack
 function MoreStackNavigator() {
   return (
-    <MoreStack.Navigator screenOptions={{ headerShown: true }}>
+    <MoreStack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerTitleStyle: { fontWeight: "800", color: "#222" },
+        headerStyle: { backgroundColor: "#FFF6F0" },
+      }}
+    >
       <MoreStack.Screen name="Explore More" component={MoreScreen} />
       <MoreStack.Screen name="Context" component={ContextScreen} />
       {/* NEW */}
@@ -54,7 +60,9 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerShown: false,
+        headerShown: true, // show title bar on tab screens too
+        headerTitleStyle: { fontWeight: "800", color: "#222" },
+        headerStyle: { backgroundColor: "#FFF6F0" },
         tabBarStyle: {
           backgroundColor: "#FFF6F0",
           height: 70,
@@ -134,7 +142,9 @@ export default function RootNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        screenOptions={{ headerShown: false }}
+        screenOptions={{
+          headerShown: false, // Tab stack manages headers
+        }}
         initialRouteName="Home"
       >
         <Stack.Screen name="Login" component={LoginScreen} />

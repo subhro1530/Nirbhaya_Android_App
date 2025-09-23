@@ -156,12 +156,9 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
-    backgroundColor: "#fff0f5",
+    backgroundColor: "#FFF6F0", // light theme
   },
-  container: {
-    flex: 1,
-    paddingHorizontal: 15,
-  },
+  container: { flex: 1, paddingHorizontal: 15, paddingTop: 20 }, // top margin
   welcome: {
     fontSize: 18,
     marginBottom: 20,

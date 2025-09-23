@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useRef } from "react";
 import {
   View,
   Text,
@@ -36,20 +36,22 @@ const HomeScreen = ({ route }) => {
     avatar: null,
   });
 
+  const sosCooldownRef = useRef(0);
+  const SHAKE_ENABLED = false; // turn off shake-to-SOS to avoid loops
+
   useEffect(() => {
     loadProfile();
     getLocation();
   }, []);
 
   useEffect(() => {
+    if (!SHAKE_ENABLED) return; // disabled to prevent loop
     let lastShake = 0;
-    const threshold = 1.5; // Adjust for sensitivity (higher = more shake)
-    const delayBetweenShakes = 4000; // 4 seconds
+    const threshold = 2.2; // higher threshold = less sensitive
+    const delayBetweenShakes = 15000; // 15s cooldown
 
-    const subscription = Accelerometer.addListener((accelerometerData) => {
-      const { x, y, z } = accelerometerData;
+    const subscription = Accelerometer.addListener(({ x, y, z }) => {
       const totalForce = Math.sqrt(x * x + y * y + z * z);
-
       if (totalForce > threshold) {
         const now = Date.now();
         if (now - lastShake > delayBetweenShakes) {
@@ -58,9 +60,7 @@ const HomeScreen = ({ route }) => {
         }
       }
     });
-
-    Accelerometer.setUpdateInterval(300); // Check every 300ms
-
+    Accelerometer.setUpdateInterval(400);
     return () => subscription && subscription.remove();
   }, [location, contacts]);
 
@@ -99,6 +99,11 @@ const HomeScreen = ({ route }) => {
   };
 
   const handleSendSOS = async () => {
+    // cooldown guard for any accidental loops
+    const now = Date.now();
+    if (now - sosCooldownRef.current < 15000) return;
+    sosCooldownRef.current = now;
+
     if (!location) {
       alert("Location not available");
       return;
@@ -145,7 +150,10 @@ const HomeScreen = ({ route }) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 30 }}
+    >
       <Text style={styles.explain}>
         Manage your profile, keep trusted contacts updated, and use SOS or other
         tools from the tabs below.
@@ -241,30 +249,30 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF6F0",
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 48, // more top margin
   },
   explain: {
     color: "#555",
     fontSize: 12,
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   header: {
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 20,
     position: "relative",
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     borderWidth: 2,
     borderColor: "#FFE1E3",
   },
   avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
@@ -273,7 +281,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: "800",
     marginTop: 10,
     color: "#222",
   },
@@ -285,11 +293,15 @@ const styles = StyleSheet.create({
   },
   dashboard: {
     backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 24,
+    borderRadius: 18,
+    padding: 20,
+    marginBottom: 28,
     borderWidth: 1,
     borderColor: "#E6DBD2",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
   },
   field: {
     marginBottom: 12,

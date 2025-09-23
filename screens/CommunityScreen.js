@@ -10,7 +10,7 @@ import {
 export default function CommunityScreen({ navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={{ height: 12 }} />
+      <View style={{ height: 24 }} />
       <Text style={styles.title}>Community Hub</Text>
       <Text style={styles.desc}>
         Connect, learn, and empower. Join anonymous discussions or explore
