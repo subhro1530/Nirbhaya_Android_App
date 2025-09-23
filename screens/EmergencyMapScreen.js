@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -32,13 +32,18 @@ const categories = [
   { name: "Restrooms", filter: "amenity.toilets", icon: "toilet" },
 ];
 
+const FETCH_TIMEOUT_MS = 9000;
+
 export default function EmergencyMapScreen() {
   const [location, setLocation] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [places, setPlaces] = useState([]);
   const [view, setView] = useState("map");
   const [bookmarks, setBookmarks] = useState([]);
+  const [infoVisible, setInfoVisible] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const abortRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -57,18 +62,31 @@ export default function EmergencyMapScreen() {
   }, [selectedCategory, location]);
 
   const fetchNearbyPlaces = async (type) => {
+    if (!location) return;
     setLoading(true);
+    setErrorMsg("");
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     const url = `https://api.geoapify.com/v2/places?categories=${type}&filter=circle:${location.longitude},${location.latitude},5000&limit=20&apiKey=${GEOAPIFY_API_KEY}`;
+    const timeout = new Promise((_, rej) =>
+      setTimeout(() => rej(new Error("timeout")), FETCH_TIMEOUT_MS)
+    );
     try {
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.features) {
-        setPlaces(data.features);
-      } else {
-        setPlaces([]);
-      }
-    } catch (error) {
-      Alert.alert("Error", "Failed to fetch places.");
+      const res = await Promise.race([
+        fetch(url, { signal: controller.signal }),
+        timeout,
+      ]);
+      const data = await res.json?.();
+      if (data?.features) setPlaces(data.features);
+      else setPlaces([]);
+    } catch (e) {
+      setErrorMsg(
+        e.message === "timeout"
+          ? "Request timed out. Tap retry."
+          : "Failed to load places."
+      );
+      setPlaces([]);
     } finally {
       setLoading(false);
     }
@@ -130,12 +148,31 @@ export default function EmergencyMapScreen() {
   );
 
   const renderPlaceList = () => {
-    if (loading) {
-      return <ActivityIndicator size="large" color="#3498db" />;
-    }
-    if (places.length === 0) {
-      return <Text>No places found.</Text>;
-    }
+    if (loading)
+      return (
+        <View style={styles.loaderBox}>
+          <ActivityIndicator size="large" color="orangered" />
+          <Text style={styles.loaderText}>
+            Scanning nearby safety resources...
+          </Text>
+        </View>
+      );
+    if (errorMsg)
+      return (
+        <View style={styles.loaderBox}>
+          <Text style={styles.errorText}>{errorMsg}</Text>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={() =>
+              selectedCategory && fetchNearbyPlaces(selectedCategory.filter)
+            }
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    if (places.length === 0)
+      return <Text style={{ padding: 20 }}>No places found.</Text>;
     return (
       <FlatList
         data={places}
@@ -179,6 +216,18 @@ export default function EmergencyMapScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {infoVisible && (
+        <View style={styles.infoBanner}>
+          <Text style={styles.infoText}>
+            Find nearby hospitals, police, fire stations, and restrooms. Tap a
+            marker or list item for directions.
+          </Text>
+          <TouchableOpacity onPress={() => setInfoVisible(false)}>
+            <Text style={styles.dismiss}>Dismiss</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {view === "map" && location && (
         <MapView
           style={styles.map}
@@ -207,13 +256,15 @@ export default function EmergencyMapScreen() {
                   )
                 }
               >
-                <View style={{ width: 150 }}>
+                <View style={{ width: 160 }}>
                   <Text style={{ fontWeight: "bold" }}>
                     {place.properties.name}
                   </Text>
-                  <Text>{place.properties.address_line1}</Text>
-                  <Text style={{ color: "#3498db", marginTop: 4 }}>
-                    Tap to open in Maps
+                  <Text numberOfLines={1}>
+                    {place.properties.address_line1 || "Address"}
+                  </Text>
+                  <Text style={{ color: "orangered", marginTop: 4 }}>
+                    Tap for directions
                   </Text>
                 </View>
               </Callout>
@@ -226,6 +277,13 @@ export default function EmergencyMapScreen() {
 
       {view === "bookmark" && (
         <BookmarkList bookmarks={bookmarks} toggleBookmark={toggleBookmark} />
+      )}
+
+      {loading && view === "map" && (
+        <View style={styles.mapLoaderOverlay}>
+          <ActivityIndicator size="large" color="orangered" />
+          <Text style={styles.loaderText}>Loading nearby places...</Text>
+        </View>
       )}
 
       <View style={styles.bottomBar}>
@@ -352,4 +410,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#fff",
   },
+  infoBanner: {
+    backgroundColor: "#fff3e0",
+    padding: 12,
+    borderBottomWidth: 1,
+    borderColor: "#ffe0b2",
+  },
+  infoText: { fontSize: 12, color: "#5d4037", lineHeight: 16 },
+  dismiss: {
+    color: "orangered",
+    marginTop: 6,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  mapLoaderOverlay: {
+    position: "absolute",
+    top: 120,
+    alignSelf: "center",
+    backgroundColor: "#ffffffdd",
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  loaderBox: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 30,
+  },
+  loaderText: { marginTop: 10, color: "#555", fontSize: 13 },
+  errorText: { color: "#c62828", textAlign: "center", marginBottom: 12 },
+  retryBtn: {
+    backgroundColor: "orangered",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+  },
+  retryText: { color: "#fff", fontWeight: "600" },
 });

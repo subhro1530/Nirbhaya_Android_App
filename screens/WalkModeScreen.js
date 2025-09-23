@@ -8,6 +8,7 @@ import {
   StatusBar,
   TextInput,
   Alert,
+  FlatList,
 } from "react-native";
 import * as Location from "expo-location";
 import * as SMS from "expo-sms";
@@ -19,6 +20,7 @@ const LOCATION_TASK_NAME = "background-location-task";
 
 let globalTrustedContact = "";
 let globalInterval = 5;
+let globalLastSentAt = null; // track last sent timestamp
 
 export default function WalkMode() {
   const [isActive, setIsActive] = useState(false);
@@ -28,18 +30,54 @@ export default function WalkMode() {
   const [intervalMinutes, setIntervalMinutes] = useState("5");
   const timerRef = useRef(null);
 
+  // NEW: enhanced UI state
+  const [nextSendIn, setNextSendIn] = useState(0);
+  const [lastSentAt, setLastSentAt] = useState(null);
+  const [log, setLog] = useState([]);
+  const [quote, setQuote] = useState("");
+
+  const quoteList = [
+    "You are strong. Keep moving forward.",
+    "Every step is protected. You are not alone.",
+    "Your safety matters. Stay aware & confident.",
+    "Courage is your silent companion tonight.",
+    "Breathe. Focus. You are in control.",
+  ];
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
+  // NEW: countdown + poll background sent time
+  useEffect(() => {
+    if (!isActive || isPaused) return;
+    const id = setInterval(() => {
+      setNextSendIn((s) => (s <= 1 ? globalInterval * 60 : s - 1));
+      if (globalLastSentAt && globalLastSentAt !== lastSentAt) {
+        setLastSentAt(globalLastSentAt);
+        setLog((prev) =>
+          [
+            {
+              ts: globalLastSentAt,
+              label: `Location SMS sent at ${new Date(
+                globalLastSentAt
+              ).toLocaleTimeString()}`,
+            },
+            ...prev,
+          ].slice(0, 5)
+        );
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [isActive, isPaused, lastSentAt]);
+
   const startJourney = async () => {
     if (!trustedContact || !intervalMinutes) {
       Alert.alert("Hold on", "Please enter both contact number and interval.");
       return;
     }
-
     const interval = parseInt(intervalMinutes);
     if (isNaN(interval) || interval <= 0) {
       Alert.alert(
@@ -67,6 +105,10 @@ export default function WalkMode() {
 
     setIsActive(true);
     setIsPaused(false);
+    setQuote(quoteList[Math.floor(Math.random() * quoteList.length)]);
+    setNextSendIn(interval * 60);
+    setLastSentAt(null);
+    setLog([]);
     timerRef.current = setInterval(() => setTimer((t) => t + 1), 1000);
 
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
@@ -119,7 +161,14 @@ export default function WalkMode() {
     setTimer(0);
     if (timerRef.current) clearInterval(timerRef.current);
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+    setQuote("");
+    setNextSendIn(0);
   };
+
+  const formatMMSS = (sec) =>
+    `${Math.floor(sec / 60)
+      .toString()
+      .padStart(2, "0")}:${(sec % 60).toString().padStart(2, "0")}`;
 
   return (
     <View style={styles.container}>
@@ -151,6 +200,8 @@ export default function WalkMode() {
       )}
 
       <Text style={styles.header}>🚶‍♀️ Emergency Walk Mode</Text>
+      {quote ? <Text style={styles.quote}>“{quote}”</Text> : null}
+
       <View style={styles.circle}>
         {!isActive ? (
           <TouchableOpacity style={styles.startButton} onPress={startJourney}>
@@ -162,6 +213,14 @@ export default function WalkMode() {
               {`${Math.floor(timer / 60)
                 .toString()
                 .padStart(2, "0")}:${(timer % 60).toString().padStart(2, "0")}`}
+            </Text>
+            <Text style={styles.meta}>
+              Next send in: {formatMMSS(nextSendIn)}
+            </Text>
+            <Text style={styles.meta}>
+              {lastSentAt
+                ? `Last sent: ${new Date(lastSentAt).toLocaleTimeString()}`
+                : "Waiting for first location send..."}
             </Text>
             <View style={styles.controlButtons}>
               {isPaused ? (
@@ -186,6 +245,19 @@ export default function WalkMode() {
                 <Text style={styles.controlText}>Stop</Text>
               </TouchableOpacity>
             </View>
+
+            {log.length > 0 && (
+              <View style={styles.logBox}>
+                <Text style={styles.logTitle}>Recent Sends</Text>
+                <FlatList
+                  data={log}
+                  keyExtractor={(i) => i.ts.toString()}
+                  renderItem={({ item }) => (
+                    <Text style={styles.logItem}>• {item.label}</Text>
+                  )}
+                />
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -204,6 +276,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
     if (globalTrustedContact && location) {
       const message = `📍 Live Location: https://maps.google.com/?q=${location.coords.latitude},${location.coords.longitude}`;
       await SMS.sendSMSAsync([globalTrustedContact], message);
+      globalLastSentAt = Date.now(); // NEW: mark last sent
     }
   }
 });
@@ -285,4 +358,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
+  quote: {
+    color: "#f5f5f5",
+    fontSize: 14,
+    fontStyle: "italic",
+    marginBottom: 10,
+    textAlign: "center",
+    opacity: 0.9,
+  },
+  meta: {
+    color: "#ccc",
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  logBox: {
+    marginTop: 16,
+    backgroundColor: "#1d1d1d",
+    padding: 10,
+    borderRadius: 10,
+    width: width * 0.65,
+    maxHeight: 120,
+  },
+  logTitle: { color: "#fff", fontWeight: "bold", marginBottom: 6 },
+  logItem: { color: "#bbb", fontSize: 12, marginBottom: 2 },
 });

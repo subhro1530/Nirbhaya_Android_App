@@ -19,19 +19,32 @@ import ContextScreen from "../screens/ContextScreen"; // will be opened from Mor
 import EmergencyMapScreen from "../screens/EmergencyMapScreen";
 import WalkModeScreen from "../screens/WalkModeScreen";
 import SmartSafetyKitScreen from "../screens/SmartSafetyKitScreen";
+import CommunityScreen from "../screens/CommunityScreen"; // NEW
+import AnonymousCommunityScreen from "../screens/AnonymousCommunityScreen"; // NEW
+import SelfDefenseWorkshopsScreen from "../screens/SelfDefenseWorkshopsScreen"; // NEW
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-
-// More Stack
 const MoreStack = createNativeStackNavigator();
 
+// More Stack
 function MoreStackNavigator() {
   return (
     <MoreStack.Navigator screenOptions={{ headerShown: true }}>
       <MoreStack.Screen name="Explore More" component={MoreScreen} />
       <MoreStack.Screen name="Context" component={ContextScreen} />
-      {/* You can add more screens here later */}
+      {/* NEW */}
+      <MoreStack.Screen name="Community" component={CommunityScreen} />
+      <MoreStack.Screen
+        name="AnonymousCommunity"
+        component={AnonymousCommunityScreen}
+        options={{ title: "Anonymous Community" }}
+      />
+      <MoreStack.Screen
+        name="SelfDefenseWorkshops"
+        component={SelfDefenseWorkshopsScreen}
+        options={{ title: "Workshops" }}
+      />
     </MoreStack.Navigator>
   );
 }
@@ -92,12 +105,13 @@ function MainTabs() {
         }}
       />
 
+      {/* Replace Content with Community */}
       <Tab.Screen
-        name="Content"
-        component={ContentScreen}
+        name="Community"
+        component={CommunityScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="folder-open" size={size} color={color} />
+            <Ionicons name="people-circle" size={size} color={color} />
           ),
         }}
       />
@@ -129,6 +143,15 @@ export default function RootNavigator() {
         <Stack.Screen name="EmergencyMap" component={EmergencyMapScreen} />
         <Stack.Screen name="WalkMode" component={WalkModeScreen} />
         <Stack.Screen name="SmartSafetyKit" component={SmartSafetyKitScreen} />
+        {/* allow direct stack access */}
+        <Stack.Screen
+          name="AnonymousCommunity"
+          component={AnonymousCommunityScreen}
+        />
+        <Stack.Screen
+          name="SelfDefenseWorkshops"
+          component={SelfDefenseWorkshopsScreen}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

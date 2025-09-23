@@ -64,6 +64,24 @@ export default function MoreScreen({ navigation }) {
       screen: "SmartSafetyKit",
       gradient: ["#532899", "#FFD200"],
     },
+    {
+      label: "Community",
+      icon: <Ionicons name="people-circle-outline" size={26} color="#fff" />,
+      screen: "Community",
+      gradient: ["#6A11CB", "#2575FC"],
+    },
+    {
+      label: "Anonymous Community",
+      icon: <Ionicons name="eye-off-outline" size={26} color="#fff" />,
+      screen: "AnonymousCommunity",
+      gradient: ["#ff512f", "#dd2476"],
+    },
+    {
+      label: "Workshops",
+      icon: <MaterialIcons name="fitness-center" size={26} color="#fff" />,
+      screen: "SelfDefenseWorkshops",
+      gradient: ["#11998e", "#38ef7d"],
+    },
   ];
 
   return (
