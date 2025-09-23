@@ -123,7 +123,6 @@ const HomeScreen = ({ route }) => {
     }
   };
 
-
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -147,6 +146,10 @@ const HomeScreen = ({ route }) => {
 
   return (
     <ScrollView style={styles.container}>
+      <Text style={styles.explain}>
+        Manage your profile, keep trusted contacts updated, and use SOS or other
+        tools from the tabs below.
+      </Text>
       <View style={styles.header}>
         <View style={{ paddingTop: 10 }} /> {/* Added top padding */}
         <TouchableOpacity onPress={pickImage}>
@@ -238,30 +241,41 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF6F0",
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 30,
+    paddingTop: 24,
+  },
+  explain: {
+    color: "#555",
+    fontSize: 12,
+    textAlign: "center",
+    marginBottom: 8,
   },
   header: {
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 18,
     position: "relative",
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
+    borderWidth: 2,
+    borderColor: "#FFE1E3",
   },
   avatarPlaceholder: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#eee",
+    backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E6DBD2",
   },
   username: {
     fontSize: 22,
-    fontWeight: "600",
+    fontWeight: "700",
     marginTop: 10,
+    color: "#222",
   },
   editIcon: {
     position: "absolute",
@@ -271,17 +285,18 @@ const styles = StyleSheet.create({
   },
   dashboard: {
     backgroundColor: "#fff",
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 30,
-    elevation: 3,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#E6DBD2",
   },
   field: {
     marginBottom: 12,
   },
   label: {
-    fontWeight: "600",
-    color: "#555",
+    fontWeight: "700",
+    color: "#666",
   },
   value: {
     fontSize: 16,
@@ -292,8 +307,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 2,
     borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
+    borderBottomColor: "#E6DBD2",
     paddingVertical: 4,
+    color: "#333",
   },
   sosButton: {
     backgroundColor: "#FF5A5F",
@@ -303,10 +319,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 50,
     marginBottom: 30,
+    shadowColor: "#FF5A5F",
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 2,
   },
   sosText: {
     color: "#fff",
-    fontWeight: "700",
+    fontWeight: "800",
     fontSize: 16,
     marginLeft: 8,
   },

@@ -12,41 +12,35 @@ import {
 
 export default function SelfDefenseWorkshopsScreen() {
   const [email, setEmail] = useState("");
-
   const subscribe = () => {
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
-      Alert.alert("Invalid", "Enter a valid email.");
-      return;
-    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()))
+      return Alert.alert("Invalid", "Enter a valid email.");
     Alert.alert("Subscribed", "You will receive workshop updates.");
     setEmail("");
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>🥋 Self-Defense Workshops</Text>
+      <Text style={styles.title}>Self-Defense Workshops</Text>
       <Text style={styles.desc}>
-        Build confidence and practical safety skills. Join upcoming sessions
-        below and subscribe for alerts.
+        Learn practical skills to build confidence and awareness. Explore
+        upcoming sessions and subscribe for updates.
       </Text>
-      <View style={styles.posterRow}>
-        <Image
-          source={require("../assets/poster1.png")}
-          style={styles.poster}
-          resizeMode="cover"
-        />
-        <Image
-          source={require("../assets/poster2.png")}
-          style={styles.poster}
-          resizeMode="cover"
-        />
-      </View>
+
+      <Image
+        source={require("../assets/poster1.png")}
+        style={styles.poster}
+        resizeMode="cover"
+      />
+
       <Text style={styles.subHeader}>Upcoming Highlights</Text>
       <View style={styles.highlight}>
         <Text style={styles.point}>• Urban Escape Basics – Sat 6 PM</Text>
         <Text style={styles.point}>• Wrist Grab Defense – Sun 11 AM</Text>
         <Text style={styles.point}>• Awareness & De-escalation – Wed 7 PM</Text>
       </View>
+
+      {/* Subscribe at the end */}
       <Text style={styles.subHeader}>Subscribe for Updates</Text>
       <TextInput
         placeholder="Your email"
@@ -61,60 +55,67 @@ export default function SelfDefenseWorkshopsScreen() {
         <Text style={styles.btnText}>Subscribe</Text>
       </TouchableOpacity>
       <Text style={styles.footer}>
-        We only send essential workshop reminders. You can opt-out anytime.
+        We only send essential workshop reminders. You can opt out anytime.
       </Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: "#111", flexGrow: 1 },
-  title: { fontSize: 26, fontWeight: "bold", color: "#fff", marginBottom: 8 },
-  desc: { color: "#bbb", fontSize: 13, lineHeight: 18, marginBottom: 20 },
-  posterRow: { flexDirection: "row", justifyContent: "space-between" },
+  container: { padding: 18, backgroundColor: "#FFF6F0", flexGrow: 1 },
+  title: { fontSize: 24, fontWeight: "800", color: "#222", marginBottom: 6 },
+  desc: {
+    color: "#555",
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 14,
+    textAlign: "center",
+  },
   poster: {
-    width: "48%",
-    height: 180,
+    width: "100%",
+    height: 220,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#222",
+    borderColor: "#E6DBD2",
+    backgroundColor: "#fff",
+    marginBottom: 16,
   },
   subHeader: {
-    color: "#fff",
+    color: "#222",
     fontSize: 16,
-    fontWeight: "600",
-    marginTop: 24,
-    marginBottom: 10,
+    fontWeight: "700",
+    marginTop: 12,
+    marginBottom: 8,
   },
   highlight: {
-    backgroundColor: "#1b1b1b",
-    padding: 14,
+    backgroundColor: "#fff",
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#272727",
+    borderColor: "#E6DBD2",
   },
-  point: { color: "#ddd", fontSize: 13, marginBottom: 4 },
+  point: { color: "#333", fontSize: 13, marginBottom: 4 },
   input: {
-    backgroundColor: "#1d1d1d",
-    color: "#fff",
+    backgroundColor: "#fff",
+    color: "#333",
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#272727",
-    marginBottom: 12,
+    borderColor: "#E6DBD2",
+    marginBottom: 10,
     marginTop: 4,
   },
   btn: {
     backgroundColor: "#11998e",
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 12,
     alignItems: "center",
   },
-  btnText: { color: "#fff", fontWeight: "600" },
+  btnText: { color: "#fff", fontWeight: "700" },
   footer: {
-    color: "#555",
+    color: "#777",
     fontSize: 11,
-    marginTop: 20,
+    marginTop: 12,
     textAlign: "center",
     lineHeight: 16,
   },

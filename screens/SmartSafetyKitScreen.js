@@ -6,9 +6,13 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
+  FlatList,
 } from "react-native";
 import * as SMS from "expo-sms";
 import * as Location from "expo-location";
+import MapView, { Marker } from "react-native-maps";
+import axios from "axios";
+import { GROQ_API_KEY } from "@env";
 
 export default function SmartSafetyKitScreen() {
   const [contactsText, setContactsText] = useState("");
@@ -17,6 +21,11 @@ export default function SmartSafetyKitScreen() {
   const [timerActive, setTimerActive] = useState(false);
   const [tip, setTip] = useState("");
   const tipIndex = useRef(0);
+
+  const [location, setLocation] = useState(null);
+  const watcher = useRef(null);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
 
   const tips = [
     "Share your route with a trusted friend before starting.",
@@ -28,8 +37,18 @@ export default function SmartSafetyKitScreen() {
 
   useEffect(() => {
     (async () => {
-      await Location.requestForegroundPermissionsAsync();
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      watcher.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 4000,
+          distanceInterval: 5,
+        },
+        (loc) => setLocation(loc.coords)
+      );
     })();
+    return () => watcher.current?.remove();
   }, []);
 
   useEffect(() => {
@@ -69,15 +88,9 @@ export default function SmartSafetyKitScreen() {
 
   const sendSmartMessage = async (mode) => {
     const list = parseContacts();
-    if (!list.length) {
-      Alert.alert("Contacts", "Please enter at least one contact number.");
-      return;
-    }
+    if (!list.length) return Alert.alert("Contacts", "Please enter contacts.");
     const available = await SMS.isAvailableAsync();
-    if (!available) {
-      Alert.alert("SMS", "SMS not available on this device.");
-      return;
-    }
+    if (!available) return Alert.alert("SMS", "Not available on this device.");
     const link = await getLocationLink();
     const msg =
       mode === "safe"
@@ -92,14 +105,10 @@ export default function SmartSafetyKitScreen() {
 
   const startSafeTimer = () => {
     const mins = parseInt(safeTimerMins);
-    if (isNaN(mins) || mins <= 0) {
-      Alert.alert("Timer", "Enter valid minutes.");
-      return;
-    }
-    if (!parseContacts().length) {
-      Alert.alert("Contacts", "Add contacts first.");
-      return;
-    }
+    if (isNaN(mins) || mins <= 0)
+      return Alert.alert("Timer", "Enter valid minutes.");
+    if (!parseContacts().length)
+      return Alert.alert("Contacts", "Add contacts first.");
     setCountdown(mins * 60);
     setTimerActive(true);
     Alert.alert(
@@ -122,16 +131,89 @@ export default function SmartSafetyKitScreen() {
     Alert.alert("Auto Alert Sent", "Safe timer alert delivered.");
   };
 
+  const sendBotMessage = async () => {
+    const userText = input.trim();
+    if (!userText) return;
+    const locText = location
+      ? `My coords: ${location.latitude},${location.longitude}.`
+      : "";
+    const prompt = `You are a concise safety assistant. Provide quick, calm guidance and a short plan relevant to the user's situation and nearby environment. If helpful, suggest checking the Emergency Map screen. ${locText} User: ${userText}`;
+    setInput("");
+    const updated = [...messages, { role: "user", content: userText }];
+    setMessages(updated);
+    try {
+      const res = await axios.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${GROQ_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const botReply =
+        res.data?.choices?.[0]?.message?.content ??
+        "Stay aware. If urgent, use SOS.";
+      setMessages([...updated, { role: "assistant", content: botReply }]);
+    } catch (e) {
+      setMessages([
+        ...updated,
+        {
+          role: "assistant",
+          content: "I couldn't respond right now. Try again shortly.",
+        },
+      ]);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🛡️ Smart Safety Kit</Text>
+      <Text style={styles.title}>Smart Safety Kit</Text>
+      <Text style={styles.explain}>
+        This kit puts safety tools at your fingertips: quick check-ins, an auto
+        Safe Timer, live map tracking, and a helper chatbot for guidance.
+      </Text>
       <Text style={styles.tip}>💡 {tip}</Text>
 
+      {/* Live Map (follows user) */}
+      <View style={styles.mapWrap}>
+        <MapView
+          style={styles.map}
+          showsUserLocation
+          region={
+            location
+              ? {
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }
+              : undefined
+          }
+        >
+          {location && (
+            <Marker
+              coordinate={{
+                latitude: location.latitude,
+                longitude: location.longitude,
+              }}
+              title="You"
+              description="Current position"
+            />
+          )}
+        </MapView>
+      </View>
+
+      {/* Quick Contacts */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Contacts</Text>
         <TextInput
           placeholder="Enter contact numbers separated by commas"
-          placeholderTextColor="#777"
+          placeholderTextColor="#888"
           style={styles.input}
           value={contactsText}
           onChangeText={setContactsText}
@@ -152,11 +234,12 @@ export default function SmartSafetyKitScreen() {
         </View>
       </View>
 
+      {/* Safe Timer */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Safe Timer</Text>
         <TextInput
           placeholder="Minutes (e.g. 10)"
-          placeholderTextColor="#777"
+          placeholderTextColor="#888"
           keyboardType="numeric"
           style={styles.input}
           value={safeTimerMins}
@@ -180,7 +263,7 @@ export default function SmartSafetyKitScreen() {
                 .padStart(2, "0")}`}
             </Text>
             <TouchableOpacity
-              style={[styles.fullBtn, { backgroundColor: "#555" }]}
+              style={[styles.fullBtn, { backgroundColor: "#777" }]}
               onPress={cancelSafeTimer}
             >
               <Text style={styles.fullBtnText}>Cancel</Text>
@@ -189,11 +272,42 @@ export default function SmartSafetyKitScreen() {
         )}
       </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Use Smart Safety Kit to stay proactive. Combine with Walk Mode for
-          layered protection.
-        </Text>
+      {/* Mini Chatbot */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Helper Chat</Text>
+        <FlatList
+          data={messages}
+          keyExtractor={(_, i) => String(i)}
+          contentContainerStyle={{ gap: 6 }}
+          renderItem={({ item }) => (
+            <View
+              style={[
+                styles.msg,
+                item.role === "user" ? styles.userMsg : styles.botMsg,
+              ]}
+            >
+              <Text style={styles.msgText}>{item.content}</Text>
+            </View>
+          )}
+        />
+        <View style={styles.chatRow}>
+          <TextInput
+            placeholder="Ask for quick guidance..."
+            placeholderTextColor="#888"
+            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+            value={input}
+            onChangeText={setInput}
+          />
+          <TouchableOpacity
+            style={[
+              styles.fullBtn,
+              { backgroundColor: "#FF5A5F", marginLeft: 8 },
+            ]}
+            onPress={sendBotMessage}
+          >
+            <Text style={styles.fullBtnText}>Send</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -202,63 +316,74 @@ export default function SmartSafetyKitScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212",
-    paddingHorizontal: 20,
-    paddingTop: 50,
+    backgroundColor: "#FFF6F0",
+    paddingHorizontal: 16,
+    paddingTop: 20,
   },
   title: {
-    fontSize: 30,
-    color: "#fff",
+    fontSize: 24,
+    color: "#222",
     textAlign: "center",
-    fontWeight: "bold",
-    marginBottom: 8,
+    fontWeight: "800",
   },
-  tip: {
+  explain: {
+    color: "#555",
+    fontSize: 12,
     textAlign: "center",
-    color: "#ffca28",
-    marginBottom: 20,
-    fontSize: 14,
-  },
-  section: {
-    backgroundColor: "#1e1e1e",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: "#2a2a2a",
-  },
-  sectionTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    marginTop: 6,
     marginBottom: 10,
   },
-  input: {
-    backgroundColor: "#262626",
-    borderRadius: 10,
-    padding: 12,
-    color: "#fff",
-    fontSize: 14,
+  tip: { textAlign: "center", color: "#7A4", marginBottom: 10, fontSize: 13 },
+  mapWrap: {
+    height: 180,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E6DBD2",
+    backgroundColor: "#fff",
     marginBottom: 12,
+  },
+  map: { flex: 1 },
+  section: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E6DBD2",
+  },
+  sectionTitle: {
+    color: "#222",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#EDE0D6",
+    padding: 10,
+    color: "#333",
+    fontSize: 14,
+    marginBottom: 10,
   },
   row: { flexDirection: "row", justifyContent: "space-between" },
   actionBtn: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 12,
     marginHorizontal: 5,
     alignItems: "center",
   },
-  actionText: { color: "#fff", fontWeight: "600" },
-  fullBtn: {
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  fullBtnText: { color: "#fff", fontWeight: "600" },
+  actionText: { color: "#fff", fontWeight: "700" },
+  fullBtn: { paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+  fullBtnText: { color: "#fff", fontWeight: "700" },
   timerBox: { alignItems: "center" },
-  timerText: { color: "#fff", fontSize: 16, marginBottom: 8 },
-  footer: { marginTop: "auto", paddingVertical: 20 },
-  footerText: { color: "#666", fontSize: 12, textAlign: "center" },
+  timerText: { color: "#333", fontSize: 14, marginBottom: 6 },
+  msg: { padding: 10, borderRadius: 10, maxWidth: "90%" },
+  userMsg: { alignSelf: "flex-end", backgroundColor: "#FFE1E3" },
+  botMsg: { alignSelf: "flex-start", backgroundColor: "#F4F0EB" },
+  msgText: { color: "#333", fontSize: 14 },
+  chatRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },
 });

@@ -172,10 +172,10 @@ export default function WalkMode() {
 
   return (
     <View style={styles.container}>
-      <StatusBar hidden />
+      <StatusBar barStyle="dark-content" />
       <Text style={styles.note}>
-        🚨 Location will be shared every {intervalMinutes || "5"} minute(s).
-        Stay safe!
+        Walk Mode periodically shares your live location with your trusted
+        contact. Keep the app open or in background; we’ll handle the rest.
       </Text>
 
       {!isActive && (
@@ -199,7 +199,7 @@ export default function WalkMode() {
         </>
       )}
 
-      <Text style={styles.header}>🚶‍♀️ Emergency Walk Mode</Text>
+      <Text style={styles.header}>Emergency Walk Mode</Text>
       {quote ? <Text style={styles.quote}>“{quote}”</Text> : null}
 
       <View style={styles.circle}>
@@ -284,33 +284,34 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0a0a0a",
+    backgroundColor: "#FFF6F0",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
   },
   note: {
-    color: "#ff6b6b",
-    fontSize: 14,
+    color: "#444",
+    fontSize: 13,
     marginBottom: 10,
     textAlign: "center",
   },
   input: {
     width: "100%",
     height: 50,
-    borderColor: "#444",
+    borderColor: "#E6DBD2",
     borderWidth: 1,
-    borderRadius: 10,
-    color: "#fff",
+    borderRadius: 12,
+    color: "#333",
+    backgroundColor: "#fff",
     paddingHorizontal: 12,
-    marginBottom: 15,
+    marginBottom: 12,
     fontSize: 16,
   },
   header: {
-    color: "#fff",
-    fontSize: 26,
-    fontWeight: "bold",
-    marginBottom: 25,
+    color: "#222",
+    fontSize: 24,
+    fontWeight: "800",
+    marginBottom: 10,
     textAlign: "center",
   },
   circle: {
@@ -318,67 +319,50 @@ const styles = StyleSheet.create({
     height: width * 0.8,
     borderRadius: width * 0.4,
     borderWidth: 5,
-    borderColor: "#fff",
+    borderColor: "#FF5A5F",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#111",
-    elevation: 10,
+    backgroundColor: "#fff",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
   },
   startButton: {
-    backgroundColor: "#3498db",
-    paddingVertical: 20,
+    backgroundColor: "#FF5A5F",
+    paddingVertical: 18,
     paddingHorizontal: 40,
     borderRadius: 100,
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "bold",
-  },
-  controls: {
-    alignItems: "center",
-  },
-  timer: {
-    fontSize: 34,
-    color: "#fff",
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
-  controlButtons: {
-    flexDirection: "row",
-    gap: 20,
-  },
+  buttonText: { color: "#fff", fontSize: 20, fontWeight: "800" },
+  controls: { alignItems: "center" },
+  timer: { fontSize: 32, color: "#222", fontWeight: "800", marginBottom: 14 },
+  controlButtons: { flexDirection: "row", gap: 14 },
   controlButton: {
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 10,
+    borderRadius: 12,
   },
-  controlText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  controlText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   quote: {
-    color: "#f5f5f5",
-    fontSize: 14,
-    fontStyle: "italic",
-    marginBottom: 10,
-    textAlign: "center",
-    opacity: 0.9,
-  },
-  meta: {
-    color: "#ccc",
+    color: "#555",
     fontSize: 13,
-    marginBottom: 4,
+    fontStyle: "italic",
+    marginBottom: 8,
+    textAlign: "center",
   },
+  meta: { color: "#666", fontSize: 12, marginBottom: 4 },
   logBox: {
-    marginTop: 16,
-    backgroundColor: "#1d1d1d",
+    marginTop: 14,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#F0E4DA",
     padding: 10,
-    borderRadius: 10,
-    width: width * 0.65,
+    borderRadius: 12,
+    width: width * 0.7,
     maxHeight: 120,
   },
-  logTitle: { color: "#fff", fontWeight: "bold", marginBottom: 6 },
-  logItem: { color: "#bbb", fontSize: 12, marginBottom: 2 },
+  logTitle: { color: "#222", fontWeight: "800", marginBottom: 6 },
+  logItem: { color: "#555", fontSize: 12, marginBottom: 2 },
 });
