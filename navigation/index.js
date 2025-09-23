@@ -32,12 +32,12 @@ function MoreStackNavigator() {
   return (
     <MoreStack.Navigator
       screenOptions={{
-        headerShown: true,
+        headerShown: true, // Show the header for the More stack
         headerTitleStyle: { fontWeight: "800", color: "#222" },
         headerStyle: { backgroundColor: "#FFF6F0" },
       }}
     >
-      <MoreStack.Screen name="Explore More" component={MoreScreen} />
+      <MoreStack.Screen name="Other Nirbhaya Facilities" component={MoreScreen} />
       <MoreStack.Screen name="Context" component={ContextScreen} />
       {/* NEW */}
       <MoreStack.Screen name="Community" component={CommunityScreen} />

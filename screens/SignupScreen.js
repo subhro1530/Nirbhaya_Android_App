@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { View, StyleSheet, Text, Image, ScrollView } from "react-native";
 import InputField from "../components/InputField";
 import CustomButton from "../components/CustomButton";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const STORAGE_KEY = "@user_profile";
 
 const SignupScreen = ({ navigation }) => {
   const [name, setName] = useState("");
@@ -11,14 +14,27 @@ const SignupScreen = ({ navigation }) => {
   const [bloodGroup, setBloodGroup] = useState("");
   const [phone, setPhone] = useState("");
 
-  const handleSignup = () => {
-    // TODO: Save this info in a global state or DB for dashboard use
-    navigation.replace("Home");
+  const handleSignup = async () => {
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          name,
+          dob,
+          email,
+          bloodGroup,
+          phone,
+          address: "Not set",
+          avatar: null,
+        })
+      );
+    } catch {}
+    navigation.replace("Home", { email });
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Image source={require("../assets/logo.png")} style={styles.logo} />
+      <Image source={require("../assets/icon.png")} style={styles.logo} />
       <Text style={styles.title}>Create a Nirbhaya Account</Text>
 
       <InputField placeholder="Full Name" value={name} onChangeText={setName} />

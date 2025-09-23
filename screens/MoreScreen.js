@@ -52,6 +52,24 @@ export default function MoreScreen({ navigation }) {
     },
   ];
 
+  // generate a simple options array (used by the grid)
+  const colors = [
+    "#FFF6F0",
+    "#FFEFE6",
+    "#E8F7FF",
+    "#F0F7EA",
+    "#FFF0F6",
+    "#F7F7FF",
+  ];
+
+  const icons = ["🗺️", "🚶", "🧰", "👥", "🕵️‍♀️", "🥋", "📞", "📰"];
+
+  const options = rows.map((r, idx) => ({
+    ...r,
+    gradient: [colors[idx % colors.length], colors[(idx + 1) % colors.length]],
+    icon: icons[idx] || "🔹",
+  }));
+
   const logout = async () => {
     try {
       await AsyncStorage.multiRemove([
@@ -59,40 +77,48 @@ export default function MoreScreen({ navigation }) {
         "@trusted_contacts",
         "@walkmode_active",
       ]);
-    } catch {}
+    } catch (e) {
+      // ignore or show a toast in your app
+      console.warn("Error clearing storage", e);
+    }
+
     navigation.reset({ index: 0, routes: [{ name: "Login" }] });
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Explore More</Text>
-      <View style={styles.list}>
-        {rows.map((it, idx) => (
+      <View style={styles.grid}>
+        {options.map((item, index) => (
           <TouchableOpacity
-            key={idx}
-            style={styles.row}
-            onPress={() => navigation.navigate(it.screen)}
+            key={index}
+            onPress={() => navigation.navigate(item.screen)}
+            style={[styles.card, { backgroundColor: item.gradient[0] }]}
+            activeOpacity={0.85}
           >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>
-                {idx + 1}. {it.label}
-              </Text>
-              <Text style={styles.rowDesc}>{it.desc}</Text>
+            <View style={styles.iconContainer}>
+              <Text style={styles.icon}>{item.icon}</Text>
             </View>
+
+            <Text style={styles.label}>{item.label}</Text>
+            <Text style={styles.cardDesc} numberOfLines={2}>
+              {item.desc}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
+
       <TouchableOpacity style={styles.logout} onPress={logout}>
         <Text style={styles.logoutText}>Log out</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#FAF9F6",
-    paddingVertical: 30,
-    paddingHorizontal: 16,
+    backgroundColor: "#FFF6F0",
+    padding: 18,
+    paddingTop: 48,
     flexGrow: 1,
   },
   grid: {
@@ -101,49 +127,34 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   card: {
-    width: "47%",
-    aspectRatio: 1,
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    elevation: 4,
+    width: "48%",
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E6DBD2",
+    marginBottom: 12,
+    minHeight: 110,
   },
   iconContainer: {
-    marginBottom: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.6)",
+    marginBottom: 8,
   },
-  label: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
-    textAlign: "center",
+  icon: { fontSize: 20 },
+  label: { color: "#222", fontWeight: "800", marginBottom: 6 },
+  cardDesc: { color: "#555", fontSize: 12 },
+  logout: {
+    marginTop: 20,
+    backgroundColor: "#FF5A5F",
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
   },
+  logoutText: { color: "#fff", fontWeight: "800" },
 });
 
-return (
-  <ScrollView contentContainerStyle={styles.container}>
-    <View style={styles.grid}>
-      {options.map((item, index) => (
-        <TouchableOpacity
-          key={index}
-          onPress={() => navigation.navigate(item.screen)}
-          style={[
-            styles.card,
-            {
-              backgroundColor: item.gradient[0],
-            },
-          ]}
-          activeOpacity={0.85}
-        >
-          <View style={styles.iconContainer}>{item.icon}</View>
-          <Text style={styles.label}>{item.label}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  </ScrollView>
-);
+
