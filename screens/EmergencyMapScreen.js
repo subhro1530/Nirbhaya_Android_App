@@ -68,16 +68,18 @@ export default function EmergencyMapScreen() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+
     const url = `https://api.geoapify.com/v2/places?categories=${type}&filter=circle:${location.longitude},${location.latitude},5000&limit=20&apiKey=${GEOAPIFY_API_KEY}`;
     const timeout = new Promise((_, rej) =>
       setTimeout(() => rej(new Error("timeout")), FETCH_TIMEOUT_MS)
     );
+
     try {
       const res = await Promise.race([
         fetch(url, { signal: controller.signal }),
         timeout,
       ]);
-      const data = await res.json?.();
+      const data = await res.json();
       if (data?.features) setPlaces(data.features);
       else setPlaces([]);
     } catch (e) {
@@ -146,6 +148,40 @@ export default function EmergencyMapScreen() {
       <Text style={styles.categoryText}>{item.name}</Text>
     </TouchableOpacity>
   );
+
+  const renderPlaceDetails = (place) => {
+    const { name, address_line1, address_line2, phone, website } =
+      place.properties;
+
+    return (
+      <View style={{ width: 200 }}>
+        <Text style={{ fontWeight: "bold", marginBottom: 4 }}>{name}</Text>
+        <Text>{address_line1 || "Address not available"}</Text>
+        {address_line2 && <Text>{address_line2}</Text>}
+        {phone && <Text>📞 {phone}</Text>}
+        {website && (
+          <Text
+            style={{ color: "blue", textDecorationLine: "underline" }}
+            onPress={() => Linking.openURL(website)}
+          >
+            🌐 Visit Website
+          </Text>
+        )}
+        <Text
+          style={{ color: "orangered", marginTop: 8 }}
+          onPress={() =>
+            openInGoogleMaps(
+              place.geometry.coordinates[1],
+              place.geometry.coordinates[0],
+              name
+            )
+          }
+        >
+          📍 Get Directions
+        </Text>
+      </View>
+    );
+  };
 
   const renderPlaceList = () => {
     if (loading)
@@ -247,27 +283,7 @@ export default function EmergencyMapScreen() {
                 longitude: place.geometry.coordinates[0],
               }}
             >
-              <Callout
-                onPress={() =>
-                  openInGoogleMaps(
-                    place.geometry.coordinates[1],
-                    place.geometry.coordinates[0],
-                    place.properties.name
-                  )
-                }
-              >
-                <View style={{ width: 160 }}>
-                  <Text style={{ fontWeight: "bold" }}>
-                    {place.properties.name}
-                  </Text>
-                  <Text numberOfLines={1}>
-                    {place.properties.address_line1 || "Address"}
-                  </Text>
-                  <Text style={{ color: "orangered", marginTop: 4 }}>
-                    Tap for directions
-                  </Text>
-                </View>
-              </Callout>
+              <Callout>{renderPlaceDetails(place)}</Callout>
             </Marker>
           ))}
         </MapView>
