@@ -1,6 +1,9 @@
-import { registerRootComponent } from 'expo';
+import "react-native-gesture-handler"; // must be first
+import "react-native-reanimated"; // ensure TurboModules registration
 
-import App from './App';
+import { registerRootComponent } from "expo";
+
+import App from "./App";
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,
