@@ -11,6 +11,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { apiFetch } from "../api/client";
 import { notifySuccess, notifyError } from "../utils/notify";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function UserTrackRequestsScreen() {
   const { token, user } = useAuth();
@@ -18,24 +19,39 @@ export default function UserTrackRequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingAct, setLoadingAct] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  const [autoCycle, setAutoCycle] = useState(0); // trigger re-load loop
 
-  const load = useCallback(async () => {
-    if (!token || user?.role !== "user") return;
-    setRefreshing(true);
-    setLoadError(null);
-    try {
-      const data = await apiFetch("/user/track-requests", { token });
-      setItems(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setLoadError("Failed to load requests");
-      notifyError("Load failed");
-    }
-    setRefreshing(false);
-  }, [token, user]);
+  const load = useCallback(
+    async (silent = false) => {
+      if (!token || user?.role !== "user") return;
+      if (!silent) setRefreshing(true);
+      setLoadError(null);
+      try {
+        const data = await apiFetch("/user/track-requests", { token });
+        setItems(Array.isArray(data) ? data : []);
+      } catch (e) {
+        setLoadError("Failed to load requests");
+        notifyError("Load failed");
+      }
+      if (!silent) setRefreshing(false);
+    },
+    [token, user]
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let timer;
+      // poll every 12s while there exists any pending request (until all resolved)
+      if (items.some((r) => r.status === "pending")) {
+        timer = setInterval(() => setAutoCycle((c) => c + 1), 12000);
+      }
+      return () => timer && clearInterval(timer);
+    }, [items])
+  );
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(true); // silent auto refresh (no spinner flicker)
+  }, [autoCycle]); // auto refresh hook
 
   const act = async (id, action) => {
     setLoadingAct(id + action);
@@ -54,6 +70,22 @@ export default function UserTrackRequestsScreen() {
     }
   };
 
+  const revoke = async (guardianId) => {
+    if (!guardianId) return;
+    try {
+      const res = await apiFetch(`/user/access/${guardianId}`, {
+        token,
+        method: "DELETE",
+      });
+      notifySuccess("Access revoked");
+      // Optimistically remove all requests from that guardian
+      setItems((prev) => prev.filter((r) => r.guardian?.id !== guardianId));
+      await load();
+    } catch (e) {
+      notifyError("Revoke failed");
+    }
+  };
+
   if (user?.role !== "user") {
     return (
       <View style={styles.center}>
@@ -64,12 +96,13 @@ export default function UserTrackRequestsScreen() {
 
   const renderItem = ({ item }) => {
     const pending = item.status === "pending";
+    const guardianName = item.guardian?.name || item.guardian?.id || "Guardian";
+    const guardianEmail = item.guardian?.email || "unknown";
     return (
       <View style={styles.card}>
         <View style={styles.rowBetween}>
           <Text style={styles.gName}>
-            {item.guardian?.name || "Guardian"}{" "}
-            <Text style={styles.gEmail}>({item.guardian?.email})</Text>
+            {guardianName} <Text style={styles.gEmail}>({guardianEmail})</Text>
           </Text>
           <View
             style={[
@@ -113,6 +146,17 @@ export default function UserTrackRequestsScreen() {
             </TouchableOpacity>
           </View>
         )}
+        {item.status === "approved" && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              disabled={!!loadingAct}
+              style={[styles.actionBtn, { backgroundColor: "#555" }]}
+              onPress={() => revoke(item.guardian?.id)}
+            >
+              <Text style={styles.actionTxt}>Revoke Access</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   };
@@ -124,6 +168,34 @@ export default function UserTrackRequestsScreen() {
         Guardians who want to view your shared location will appear here.
         Approve only those you trust.
       </Text>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          marginBottom: 8,
+        }}
+      >
+        <TouchableOpacity
+          onPress={load}
+          style={{
+            backgroundColor: "#FFE1E3",
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 14,
+          }}
+          disabled={refreshing}
+        >
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: "600",
+              color: "#FF5A5F",
+            }}
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Text>
+        </TouchableOpacity>
+      </View>
       {loadError && <Text style={styles.err}>{loadError}</Text>}
       <FlatList
         data={items}
@@ -134,7 +206,10 @@ export default function UserTrackRequestsScreen() {
         }
         ListEmptyComponent={
           !refreshing && (
-            <Text style={styles.empty}>No requests at the moment.</Text>
+            <Text style={styles.empty}>
+              No requests yet. Guardians can send requests which will appear
+              here.
+            </Text>
           )
         }
         contentContainerStyle={{ paddingBottom: 40 }}

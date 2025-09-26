@@ -48,6 +48,10 @@ const HomeScreen = ({ route }) => {
   const [pendingLocal, setPendingLocal] = useState([]); // local pending list (emails)
   const [inlineErr, setInlineErr] = useState(null);
 
+  const [lastUploadAt, setLastUploadAt] = useState(null);
+  const [verifyingUpload, setVerifyingUpload] = useState(false);
+  const [uploadingLocation, setUploadingLocation] = useState(false);
+
   const sosCooldownRef = useRef(0);
   const SHAKE_ENABLED = false; // turn off shake-to-SOS to avoid loops
 
@@ -157,18 +161,58 @@ const HomeScreen = ({ route }) => {
   };
 
   const uploadLocationToBackend = async () => {
-    if (!token || user?.role !== "user") return;
+    if (!token || user?.role !== "user" || uploadingLocation) return;
+    setUploadingLocation(true);
     try {
-      const loc = await Location.getCurrentPositionAsync({});
+      const fg = await Location.requestForegroundPermissionsAsync();
+      if (fg.status !== "granted") {
+        notifyError("Location permission denied");
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      if (!loc?.coords) {
+        notifyError("Failed to read device location");
+        return;
+      }
       const link = `https://maps.google.com/?q=${loc.coords.latitude},${loc.coords.longitude}`;
-      await apiFetch("/location/upload", {
+      const resp = await apiFetch("/location/upload", {
         token,
         method: "POST",
         body: { link },
       });
-      notifySuccess("Location uploaded");
+      if (resp?.id || resp?.recorded_at) {
+        setLastUploadAt(resp.recorded_at || new Date().toISOString());
+        notifySuccess("Location uploaded successfully");
+      } else {
+        notifyError("Server did not confirm upload");
+      }
+    } catch (e) {
+      notifyError("Upload failed (network/server)");
+    } finally {
+      setUploadingLocation(false);
+    }
+  };
+
+  const verifyLastUpload = async () => {
+    if (!token || user?.role !== "user") return;
+    setVerifyingUpload(true);
+    try {
+      const list = await apiFetch("/location/mine", { token });
+      if (Array.isArray(list) && list.length) {
+        const latest = list[0];
+        setLastUploadAt(
+          latest.recorded_at || latest.created_at || lastUploadAt
+        );
+        notifySuccess("Latest location found");
+      } else {
+        notifyInfo("No locations stored yet");
+      }
     } catch {
-      notifyError("Upload failed");
+      notifyError("Verify failed");
+    } finally {
+      setVerifyingUpload(false);
     }
   };
 
@@ -363,12 +407,45 @@ const HomeScreen = ({ route }) => {
             <Text style={styles.sosText}>Send SOS</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.sosButton, { backgroundColor: "#2e7d32" }]}
+            style={[
+              styles.sosButton,
+              {
+                backgroundColor: "#2e7d32",
+                opacity: uploadingLocation ? 0.7 : 1,
+              },
+            ]}
             onPress={uploadLocationToBackend}
+            disabled={uploadingLocation}
           >
             <Ionicons name="navigate" size={24} color="#fff" />
-            <Text style={styles.sosText}>Upload Location</Text>
+            <Text style={styles.sosText}>
+              {uploadingLocation ? "Uploading..." : "Upload Location"}
+            </Text>
           </TouchableOpacity>
+          <View
+            style={{ marginTop: -10, marginBottom: 20, alignItems: "center" }}
+          >
+            {lastUploadAt && (
+              <Text style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>
+                Last upload: {new Date(lastUploadAt).toLocaleTimeString()}
+              </Text>
+            )}
+            <TouchableOpacity
+              onPress={verifyLastUpload}
+              style={{
+                backgroundColor: "#FFE1E3",
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 20,
+              }}
+            >
+              <Text
+                style={{ color: "#FF5A5F", fontSize: 11, fontWeight: "700" }}
+              >
+                {verifyingUpload ? "Verifying..." : "Verify Last Upload"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
 

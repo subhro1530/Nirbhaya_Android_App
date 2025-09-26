@@ -75,6 +75,7 @@ export default function WalkMode() {
     return () => clearInterval(id);
   }, [isActive, isPaused, lastSentAt]);
 
+  // store token (attempt) at journey start
   const startJourney = async () => {
     if (!trustedContact || !intervalMinutes) {
       Alert.alert("Hold on", "Please enter both contact number and interval.");
@@ -105,6 +106,14 @@ export default function WalkMode() {
       );
       return;
     }
+
+    // cache auth token (best-effort)
+    try {
+      const t = await AsyncStorage.getItem("@auth_token");
+      if (t) {
+        global.__WALKMODE_TOKEN__ = t;
+      }
+    } catch {}
 
     setIsActive(true);
     setIsPaused(false);
@@ -283,11 +292,9 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   }
   if (data) {
     const active = await AsyncStorage.getItem("@walkmode_active");
-    if (active !== "1") return; // do not send when stopped
-
+    if (active !== "1") return;
     const { locations } = data;
     const location = locations[0];
-
     if (globalTrustedContact && location) {
       // include profile details
       let profileTxt = "";
@@ -304,6 +311,23 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
       const message = `📍 Live Location: https://maps.google.com/?q=${location.coords.latitude},${location.coords.longitude}${profileTxt}`;
       await SMS.sendSMSAsync([globalTrustedContact], message);
       globalLastSentAt = Date.now();
+      // NEW: attempt server upload
+      try {
+        const token =
+          global.__WALKMODE_TOKEN__ ||
+          (await AsyncStorage.getItem("@auth_token"));
+        if (token) {
+          const link = `https://maps.google.com/?q=${location.coords.latitude},${location.coords.longitude}`;
+          await fetch(`${API_BASE || ""}/location/upload`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ link }),
+          });
+        }
+      } catch {}
     }
   }
 });

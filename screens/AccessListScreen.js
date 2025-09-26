@@ -11,14 +11,17 @@ import {
 } from "react-native";
 import { useAuth, API_BASE } from "../contexts/AuthContext";
 import { apiFetch } from "../api/client";
-import { notifyError, notifySuccess } from "../utils/notify";
+import { notifyError, notifySuccess, notifyInfo } from "../utils/notify";
+import { Feather } from "@expo/vector-icons";
 
 export default function AccessListScreen() {
   const { token, user } = useAuth();
 
-  const [ids, setIds] = useState([]); // approved user IDs
-  const [locations, setLocations] = useState({}); // id -> latest location object
-  const [requests, setRequests] = useState([]); // outgoing guardian requests
+  const [approvedIds, setApprovedIds] = useState([]); // raw approved ids
+  const [requests, setRequests] = useState([]); // /guardian/requests
+  const [trackedUsers, setTrackedUsers] = useState([]); // [{id,name,email}]
+  const [locationMap, setLocationMap] = useState({}); // id -> { link, updated_at } | null | { loading:true }
+
   const [pendingLocal, setPendingLocal] = useState([]); // locally added (optimistic) pending emails
 
   const [email, setEmail] = useState("");
@@ -29,6 +32,8 @@ export default function AccessListScreen() {
 
   const [reqError, setReqError] = useState(null);
   const [loadError, setLoadError] = useState(null);
+
+  const [sosDetails, setSosDetails] = useState({}); // { userId: { loading, data, error, expanded }}
 
   const canUse = user?.role === "guardian" || user?.role === "ngo";
   if (!canUse) {
@@ -80,74 +85,75 @@ export default function AccessListScreen() {
       }
       setLoadingStatuses(true);
 
-      let approvedIds = [];
-      // Approved IDs
+      let accessIds = [];
       try {
-        const res = await fetch(`${API_BASE}/profile/me/access-to`, {
+        const r = await fetch(`${API_BASE}/profile/me/access-to`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.ok) {
-          const data = await res.json();
-          approvedIds = data?.canAccess || [];
-          setIds(approvedIds);
+        if (r.ok) {
+          const data = await r.json();
+          accessIds = data?.canAccess || [];
+          setApprovedIds(accessIds);
         } else {
-          setLoadError(`Access fetch failed (${res.status})`);
+          setLoadError(`Access fetch failed (${r.status})`);
         }
       } catch {
         setLoadError("Access fetch error");
       }
 
-      // Outgoing requests (statuses)
+      // Guardian requests
+      let reqList = [];
       try {
-        const res = await fetch(`${API_BASE}/guardian/requests`, {
+        const rr = await fetch(`${API_BASE}/guardian/requests`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.ok) {
-          const data = await res.json();
-          const sorted = Array.isArray(data)
+        if (rr.ok) {
+          const data = await rr.json();
+          reqList = Array.isArray(data)
             ? [...data].sort(
                 (a, b) => new Date(b.created_at) - new Date(a.created_at)
               )
             : [];
-          setRequests(sorted);
-        } else {
-          setRequests([]);
         }
       } catch {
-        setRequests([]);
+        /* ignore */
       }
+      setRequests(reqList);
 
-      // Latest locations for approved IDs (404 => none yet)
-      const locMap = {};
-      for (const id of approvedIds) {
-        try {
-          const r = await fetch(`${API_BASE}/location/latest/${id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (r.ok) locMap[id] = await r.json();
-          else locMap[id] = null;
-        } catch {
-          locMap[id] = null;
-        }
-      }
-      setLocations(locMap);
+      // Build trackedUsers from approved requests + accessIds
+      const approvedFromRequests = reqList
+        .filter((r) => r.status === "approved" && r.user?.id)
+        .map((r) => ({
+          id: r.user.id,
+          name: r.user.name || "",
+          email: r.user.email || "",
+        }));
 
-      // Remove local pending if now resolved (approved)
+      const byId = {};
+      approvedFromRequests.forEach((u) => (byId[u.id] = u));
+      // include any accessIds not in request list (id only)
+      accessIds.forEach((id) => {
+        if (!byId[id]) byId[id] = { id, name: "", email: "" };
+      });
+
+      setTrackedUsers(Object.values(byId));
+
+      // prune local pending (approved)
       setPendingLocal((prev) =>
-        prev.filter((p) => !approvedIds.some((id) => id.includes(p.email)))
+        prev.filter((p) => !accessIds.some((id) => id.includes(p.email)))
       );
 
       setLoadingStatuses(false);
       if (!silent) setRefreshing(false);
     },
-    [token, API_BASE]
+    [token, API_BASE] // removed pendingLocal to prevent infinite re-creation / re-run loop
   );
 
   useEffect(() => {
     load();
   }, [load]);
 
-  // Map approved user id -> request status
+  // STATUS MAP (for chips)
   const statusMap = useMemo(() => {
     const m = {};
     requests.forEach((r) => {
@@ -156,56 +162,194 @@ export default function AccessListScreen() {
     return m;
   }, [requests]);
 
-  // Server-side pending/rejected not yet approved
   const serverPending = requests.filter(
-    (r) => r.status !== "approved" && !ids.includes(r?.user?.id)
+    (r) => r.status !== "approved" && !approvedIds.includes(r.user?.id)
   );
 
-  // UI helpers
-  const renderTracked = ({ item }) => {
-    const info = locations[item];
-    const st = statusMap[item] || "approved";
+  // Delete access request
+  const deleteAccess = async (userId) => {
+    const req = requests.find(
+      (r) => r.user?.id === userId && r.status === "approved"
+    );
+    if (!req) {
+      notifyError("Delete not available");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/guardian/track-request/${req.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        notifySuccess("Access removed");
+        setTrackedUsers((prev) => prev.filter((u) => u.id !== userId));
+        setRequests((prev) => prev.filter((r) => r.id !== req.id));
+        setLocationMap((prev) => {
+          const copy = { ...prev };
+          delete copy[userId];
+          return copy;
+        });
+      } else {
+        notifyError(`Failed (${res.status})`);
+      }
+    } catch {
+      notifyError("Delete failed");
+    }
+  };
+
+  // Fetch latest location on demand
+  const fetchLocation = async (uid) => {
+    setLocationMap((p) => ({ ...p, [uid]: { loading: true } }));
+    let stored = null;
+    try {
+      const r = await fetch(`${API_BASE}/guardian/user-location/${uid}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (r.ok) {
+        const j = await r.json();
+        if (j?.link) {
+          stored = {
+            link: j.link,
+            updated_at: j.recorded_at || j.updated_at || new Date().toISOString(),
+          };
+        } else if (j?.lat && j?.lng) {
+          // build link if only coords present
+          const link = j.link || `https://maps.google.com/?q=${j.lat},${j.lng}`;
+          stored = {
+            link,
+            updated_at: j.recorded_at || new Date().toISOString(),
+          };
+        }
+      } else if (r.status === 404) {
+        stored = null;
+      }
+    } catch {
+      // leave stored null (no location uploaded yet)
+    }
+    if (stored) notifySuccess("Location fetched");
+    setLocationMap((p) => ({ ...p, [uid]: stored }));
+  };
+
+  // CARD RENDER
+  const renderUser = ({ item }) => {
+    const status = statusMap[item.id] || "approved";
+    const loc = locationMap[item.id];
+    const loadingLoc = loc && loc.loading;
     return (
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
-          <Text style={styles.uid}>{item}</Text>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text style={styles.uid}>{item.name ? item.name : "User"}</Text>
+            {!!item.email && <Text style={styles.metaSmall}>{item.email}</Text>}
+          </View>
           <View
-            style={[
-              styles.statusChip,
-              st === "approved"
-                ? styles.chipApproved
-                : st === "rejected"
-                ? styles.chipRejected
-                : styles.chipPending,
-            ]}
+            style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
           >
-            <Text style={styles.chipText}>{st}</Text>
+            <View
+              style={[
+                styles.statusChip,
+                status === "approved"
+                  ? styles.chipApproved
+                  : status === "rejected"
+                  ? styles.chipRejected
+                  : styles.chipPending,
+              ]}
+            >
+              <Text style={styles.chipText}>{status}</Text>
+            </View>
+            {status === "approved" && (
+              <TouchableOpacity
+                style={styles.delBtn}
+                onPress={() => deleteAccess(item.id)}
+              >
+                <Feather name="trash-2" size={14} color="#fff" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
-        {info?.link ? (
+
+        {loc && !loc.loading && loc?.link && (
           <>
             <Text style={styles.meta}>
-              Updated: {new Date(info.updated_at).toLocaleTimeString()}
+              Updated: {new Date(loc.updated_at).toLocaleTimeString()}
             </Text>
-            <TouchableOpacity onPress={() => Linking.openURL(info.link)}>
+            <TouchableOpacity
+              onPress={() => {
+                Linking.openURL(loc.link);
+                notifyInfo("Opening location");
+              }}
+            >
               <Text style={styles.link}>Open Location</Text>
             </TouchableOpacity>
           </>
-        ) : (
-          <Text style={styles.meta}>
-            {loadingStatuses
-              ? "Loading location..."
-              : "No location uploaded yet."}
-          </Text>
+        )}
+        {!loc && <Text style={styles.meta}>No location fetched yet.</Text>}
+        {loc && loc.loading && <Text style={styles.meta}>Fetching location...</Text>}
+        {loc === null && <Text style={styles.meta}>No location uploaded yet.</Text>}
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.smallBtn, { backgroundColor: "#546e7a" }]}
+            onPress={() => fetchLocation(item.id)}
+          >
+            <Text style={styles.smallBtnText}>
+              {loadingLoc ? "..." : "Fetch Location"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.smallBtn, { backgroundColor: "#FF5A5F" }]}
+            onPress={() => toggleSOS(item.id)}
+          >
+            <Text style={styles.smallBtnText}>
+              {sosDetails[item.id]?.expanded ? "Hide SOS" : "Last SOS"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* SOS block reused */}
+        {sosDetails[item.id]?.expanded && (
+          <View style={styles.sosBox}>
+            {sosDetails[item.id]?.loading && (
+              <Text style={styles.sosLine}>Fetching SOS...</Text>
+            )}
+            {!sosDetails[item.id]?.loading && sosDetails[item.id]?.error && (
+              <Text style={[styles.sosLine, { color: "#c62828" }]}>
+                {sosDetails[item.id].error}
+              </Text>
+            )}
+            {!sosDetails[item.id]?.loading && sosDetails[item.id]?.data && (
+              <>
+                <Text style={styles.sosLine}>
+                  Note: {sosDetails[item.id].data.note || "(no note)"}
+                </Text>
+                <Text style={styles.sosLine}>
+                  Type: {sosDetails[item.id].data.emergency_type || "-"}
+                </Text>
+                {sosDetails[item.id].data.location_link && (
+                  <TouchableOpacity
+                    onPress={() =>
+                      Linking.openURL(sosDetails[item.id].data.location_link)
+                    }
+                  >
+                    <Text style={[styles.link, { marginTop: 4 }]}>
+                      Open SOS Location
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
         )}
       </View>
     );
   };
 
+  // ADJUST counts: approved = trackedUsers.length
+  // PENDING = serverPending + pendingLocal
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Tracked Users</Text>
-
       {loadError && <Text style={styles.errLine}>{loadError}</Text>}
 
       <View style={styles.refreshRow}>
@@ -220,6 +364,7 @@ export default function AccessListScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Send new request (unchanged) */}
       <View style={styles.searchBox}>
         <TextInput
           style={styles.searchInput}
@@ -242,7 +387,7 @@ export default function AccessListScreen() {
 
       <View style={styles.countsRow}>
         <View style={styles.countCard}>
-          <Text style={styles.countNum}>{ids.length}</Text>
+          <Text style={styles.countNum}>{trackedUsers.length}</Text>
           <Text style={styles.countLbl}>Approved</Text>
         </View>
         <View style={styles.countCard}>
@@ -255,6 +400,7 @@ export default function AccessListScreen() {
 
       {reqError && <Text style={styles.err}>{reqError}</Text>}
 
+      {/* Pending lists (reuse existing blocks) */}
       {serverPending.length > 0 && (
         <View style={styles.pendingWrap}>
           <Text style={styles.pendingTitle}>
@@ -295,15 +441,17 @@ export default function AccessListScreen() {
       )}
 
       <FlatList
-        data={ids}
-        keyExtractor={(i) => i}
-        renderItem={renderTracked}
+        data={trackedUsers}
+        keyExtractor={(u) => u.id}
+        renderItem={renderUser}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => load()} />
         }
         ListEmptyComponent={
           <Text style={styles.empty}>
-            {loadingStatuses ? "Loading..." : "No users accessible."}
+            {loadingStatuses
+              ? "Loading..."
+              : "No approved users yet. Approvals appear after user accepts."}
           </Text>
         }
         contentContainerStyle={{ paddingBottom: 30 }}
@@ -393,6 +541,7 @@ const styles = StyleSheet.create({
   },
   uid: { fontWeight: "700", color: "#333", marginBottom: 4, maxWidth: "70%" },
   meta: { color: "#555", fontSize: 12, marginBottom: 6 },
+  metaSmall: { color: "#666", fontSize: 11, marginBottom: 4 },
   link: { color: "#FF5A5F", fontWeight: "700" },
   statusChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 18 },
   chipText: {
@@ -423,4 +572,34 @@ const styles = StyleSheet.create({
   empty: { textAlign: "center", marginTop: 40, color: "#666" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   warn: { color: "#c62828", fontWeight: "700" },
+  actionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 6,
+  },
+  smallBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  smallBtnText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  sosBox: {
+    marginTop: 8,
+    backgroundColor: "#FFF6F0",
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#F2E2D8",
+  },
+  sosLine: { fontSize: 11, color: "#444", marginBottom: 2 },
+  delBtn: {
+    backgroundColor: "#c62828",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });
+  

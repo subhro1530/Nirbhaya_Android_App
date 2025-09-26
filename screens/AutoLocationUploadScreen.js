@@ -27,12 +27,21 @@ TaskManager.defineTask(TASK_NAME, async ({ data, error }) => {
     const loc = data?.locations?.[0];
     if (!token || !loc) return;
     const link = `https://maps.google.com/?q=${loc.coords.latitude},${loc.coords.longitude}`;
-    await apiFetch("/location/upload", {
-      token,
-      method: "POST",
-      body: { link },
-    });
+    // capture response
+    let resp;
+    try {
+      resp = await apiFetch("/location/upload", {
+        token,
+        method: "POST",
+        body: { link },
+      });
+    } catch {
+      return;
+    }
     global.__LAST_AUTO_UPLOAD__ = Date.now();
+    if (resp?.recorded_at) {
+      global.__LAST_AUTO_UPLOAD_RECORDED_AT__ = resp.recorded_at;
+    }
   } catch {}
 });
 
@@ -42,6 +51,7 @@ export default function AutoLocationUploadScreen() {
   const [active, setActive] = useState(false);
   const [lastTs, setLastTs] = useState(null);
   const [log, setLog] = useState([]);
+  const [manualUploading, setManualUploading] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -112,6 +122,37 @@ export default function AutoLocationUploadScreen() {
     notifyInfo("Stopped");
   };
 
+  const manualUploadNow = async () => {
+    if (user?.role !== "user" || !token) return;
+    setManualUploading(true);
+    try {
+      const fg = await Location.requestForegroundPermissionsAsync();
+      if (fg.status !== "granted") {
+        notifyError("Permission denied");
+        setManualUploading(false);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const link = `https://maps.google.com/?q=${loc.coords.latitude},${loc.coords.longitude}`;
+      const resp = await apiFetch("/location/upload", {
+        token,
+        method: "POST",
+        body: { link },
+      });
+      notifySuccess(`Uploaded${resp?.recorded_at ? "" : ""}`);
+      global.__LAST_AUTO_UPLOAD__ = Date.now();
+      if (resp?.recorded_at) {
+        global.__LAST_AUTO_UPLOAD_RECORDED_AT__ = resp.recorded_at;
+      }
+    } catch {
+      notifyError("Manual upload failed");
+    } finally {
+      setManualUploading(false);
+    }
+  };
+
   useEffect(() => {
     return () => {
       // optional: keep running if desired; leaving as-is
@@ -156,6 +197,17 @@ export default function AutoLocationUploadScreen() {
           <Text style={styles.btnText}>Stop</Text>
         </TouchableOpacity>
       )}
+      {active && (
+        <TouchableOpacity
+          style={[styles.btn, { backgroundColor: "#546e7a", marginTop: -4 }]}
+          onPress={manualUploadNow}
+          disabled={manualUploading}
+        >
+          <Text style={styles.btnText}>
+            {manualUploading ? "Uploading..." : "Upload Now"}
+          </Text>
+        </TouchableOpacity>
+      )}
       <View style={styles.statusBox}>
         <Text style={styles.statusLabel}>
           Status:{" "}
@@ -166,6 +218,14 @@ export default function AutoLocationUploadScreen() {
         <Text style={styles.statusLabel}>
           Last Upload: {lastTs ? new Date(lastTs).toLocaleTimeString() : "—"}
         </Text>
+        {global.__LAST_AUTO_UPLOAD_RECORDED_AT__ && (
+          <Text style={styles.statusLabel}>
+            Recorded:{" "}
+            {new Date(
+              global.__LAST_AUTO_UPLOAD_RECORDED_AT__
+            ).toLocaleTimeString()}
+          </Text>
+        )}
         <Text style={styles.statusHint}>
           Uploads every {active ? currentIntervalMs / 60000 : minutes || "?"}{" "}
           min(s)

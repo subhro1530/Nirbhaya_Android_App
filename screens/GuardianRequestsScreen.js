@@ -109,6 +109,23 @@ export default function GuardianRequestsScreen() {
     }
   };
 
+  const cancelRequest = async (id) => {
+    try {
+      const res = await fetch(`${API_BASE}/guardian/track-request/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        notifySuccess("Request canceled");
+        setOutgoing((prev) => prev.filter((r) => r.id !== id));
+      } else {
+        notifyError(`Cancel failed (${res.status})`);
+      }
+    } catch {
+      notifyError("Cancel network error");
+    }
+  };
+
   useEffect(() => {
     loadOutgoing();
   }, [token]);
@@ -180,21 +197,31 @@ export default function GuardianRequestsScreen() {
           {outgoing.map((r) => (
             <View key={r.id} style={styles.outItem}>
               <Text style={styles.outLine}>
-                To: {r.user?.id || "user"} •{" "}
+                To: {r.user?.name || r.user?.id || "user"} • {r.status} •{" "}
                 {new Date(r.created_at).toLocaleTimeString()}
               </Text>
-              <Text
-                style={[
-                  styles.outStatus,
-                  r.status === "approved"
-                    ? styles.txtApproved
-                    : r.status === "rejected"
-                    ? styles.txtRejected
-                    : styles.txtPending,
-                ]}
-              >
-                {r.status}
-              </Text>
+              {r.status === "pending" && (
+                <TouchableOpacity
+                  onPress={() => cancelRequest(r.id)}
+                  style={styles.cancelMini}
+                >
+                  <Text style={styles.cancelMiniTxt}>Cancel</Text>
+                </TouchableOpacity>
+              )}
+              {r.status !== "pending" && (
+                <Text
+                  style={[
+                    styles.outStatus,
+                    r.status === "approved"
+                      ? styles.txtApproved
+                      : r.status === "rejected"
+                      ? styles.txtRejected
+                      : styles.txtPending,
+                  ]}
+                >
+                  {r.status}
+                </Text>
+              )}
             </View>
           ))}
         </View>
@@ -273,4 +300,11 @@ const styles = StyleSheet.create({
   txtApproved: { color: "#2e7d32" },
   txtRejected: { color: "#c62828" },
   txtPending: { color: "#f39c12" },
+  cancelMini: {
+    backgroundColor: "#c62828",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  cancelMiniTxt: { color: "#fff", fontSize: 10, fontWeight: "700" },
 });
