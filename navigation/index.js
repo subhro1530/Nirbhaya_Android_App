@@ -62,12 +62,21 @@ function MoreStackNavigator() {
       />
       <MoreStack.Screen name="EmergencyMap" component={EmergencyMapScreen} />
       <MoreStack.Screen name="WalkMode" component={WalkModeScreen} />
-      <MoreStack.Screen name="SmartSafetyKit" component={SmartSafetyKitScreen} />
-      <MoreStack.Screen name="GuardianRequests" component={GuardianRequestsScreen} />
+      <MoreStack.Screen
+        name="SmartSafetyKit"
+        component={SmartSafetyKitScreen}
+      />
+      <MoreStack.Screen
+        name="GuardianRequests"
+        component={GuardianRequestsScreen}
+      />
       <MoreStack.Screen name="AccessList" component={AccessListScreen} />
       <MoreStack.Screen name="VisibleTo" component={VisibleToScreen} />
       <MoreStack.Screen name="Doctors" component={DoctorsScreen} />
-      <MoreStack.Screen name="IncomingTrackRequests" component={IncomingTrackRequestsScreen} />
+      <MoreStack.Screen
+        name="IncomingTrackRequests"
+        component={IncomingTrackRequestsScreen}
+      />
     </MoreStack.Navigator>
   );
 }
@@ -269,10 +278,22 @@ export default function RootNavigator() {
         <Stack.Screen name="EmergencyMap" component={EmergencyMapScreen} />
         <Stack.Screen name="WalkMode" component={WalkModeScreen} />
         <Stack.Screen name="SmartSafetyKit" component={SmartSafetyKitScreen} />
-        <Stack.Screen name="AnonymousCommunity" component={AnonymousCommunityScreen} />
-        <Stack.Screen name="SelfDefenseWorkshops" component={SelfDefenseWorkshopsScreen} />
-        <Stack.Screen name="GuardianRequests" component={GuardianRequestsScreen} />
-        <Stack.Screen name="IncomingTrackRequests" component={IncomingTrackRequestsScreen} />
+        <Stack.Screen
+          name="AnonymousCommunity"
+          component={AnonymousCommunityScreen}
+        />
+        <Stack.Screen
+          name="SelfDefenseWorkshops"
+          component={SelfDefenseWorkshopsScreen}
+        />
+        <Stack.Screen
+          name="GuardianRequests"
+          component={GuardianRequestsScreen}
+        />
+        <Stack.Screen
+          name="IncomingTrackRequests"
+          component={IncomingTrackRequestsScreen}
+        />
         <Stack.Screen name="AccessList" component={AccessListScreen} />
         <Stack.Screen name="VisibleTo" component={VisibleToScreen} />
         <Stack.Screen name="Doctors" component={DoctorsScreen} />
