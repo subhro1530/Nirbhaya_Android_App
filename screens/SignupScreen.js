@@ -11,6 +11,7 @@ import InputField from "../components/InputField";
 import CustomButton from "../components/CustomButton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth, API_BASE } from "../contexts/AuthContext";
+import { notifySuccess, notifyError } from "../utils/notify";
 
 const STORAGE_KEY = "@user_profile";
 
@@ -40,6 +41,9 @@ const SignupScreen = ({ navigation }) => {
       if (res.ok) {
         const data = await res.json();
         await setAuthState(data.accessToken, data.user);
+        notifySuccess("Account created");
+      } else {
+        notifyError("Signup failed");
       }
     } catch {}
     navigation.replace("Home", { email });

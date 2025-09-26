@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 import { API_BASE } from "../contexts/AuthContext";
+import { notifySuccess, notifyError } from "../utils/notify";
 
 export default function IncomingTrackRequestsScreen() {
   const { token, user } = useAuth();
@@ -49,12 +50,15 @@ export default function IncomingTrackRequestsScreen() {
         body: JSON.stringify({ action }),
       });
       if (res.ok) {
+        notifySuccess(
+          action === "approve" ? "Access approved" : "Request rejected"
+        );
         await load();
       } else {
-        Alert.alert("Failed", `Status ${res.status}`);
+        notifyError(`Failed (${res.status})`);
       }
     } catch {
-      Alert.alert("Error", "Action failed");
+      notifyError("Network error");
     }
   };
 

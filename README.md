@@ -44,6 +44,18 @@
   👤 Profile
 - Middle button is a prominent SOS shortcut
 
+### New (User Only)
+
+Auto Location Upload:
+
+- Background task using Expo Location
+- Uploads /location/upload every X minutes
+- Start/Stop + recent upload log
+
+Real-time Toast Feedback:
+
+- Green (success), Red (error), Neutral (info) for all major actions.
+
 ---
 
 ## 🧑‍💻 Tech Stack

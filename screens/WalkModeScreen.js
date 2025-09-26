@@ -15,6 +15,7 @@ import * as SMS from "expo-sms";
 import * as TaskManager from "expo-task-manager";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { notifySuccess, notifyError, notifyInfo } from "../utils/notify";
 
 const { width } = Dimensions.get("window");
 const LOCATION_TASK_NAME = "background-location-task";
@@ -133,12 +134,15 @@ export default function WalkMode() {
       },
       trigger: null,
     });
+
+    notifySuccess("Walk Mode started");
   };
 
   const pauseJourney = async () => {
     setIsPaused(true);
     if (timerRef.current) clearInterval(timerRef.current);
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+    notifyInfo("Paused");
   };
 
   const resumeJourney = async () => {
@@ -155,6 +159,7 @@ export default function WalkMode() {
         notificationColor: "#FF0000",
       },
     });
+    notifySuccess("Resumed");
   };
 
   const stopJourney = async () => {
@@ -168,6 +173,7 @@ export default function WalkMode() {
     globalLastSentAt = null;
     setQuote("");
     setNextSendIn(0);
+    notifyInfo("Stopped");
   };
 
   const formatMMSS = (sec) =>

@@ -4,6 +4,7 @@ import InputField from "../components/InputField";
 import CustomButton from "../components/CustomButton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth, API_BASE } from "../contexts/AuthContext";
+import { notifySuccess, notifyError } from "../utils/notify";
 
 const STORAGE_KEY = "@user_profile";
 
@@ -23,6 +24,9 @@ const LoginScreen = ({ navigation }) => {
       if (res.ok) {
         const data = await res.json();
         await setAuthState(data.accessToken, data.user); // stores AsyncStorage
+        notifySuccess("Logged in");
+      } else {
+        notifyError("Login failed");
       }
     } catch (e) {
       // ignore -> continue legacy local profile save
@@ -57,6 +61,17 @@ const LoginScreen = ({ navigation }) => {
           onChangeText={setPassword}
           secureTextEntry
         />
+
+        <Text
+          style={{
+            fontSize: 10,
+            color: "#999",
+            textAlign: "center",
+            marginBottom: 8,
+          }}
+        >
+          Use admin email to access admin role after login.
+        </Text>
 
         <CustomButton title="Login" onPress={handleLogin} />
       </View>

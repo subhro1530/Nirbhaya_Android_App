@@ -20,6 +20,7 @@ import * as SMS from "expo-sms";
 import { useAuth } from "../contexts/AuthContext";
 import { apiFetch } from "../api/client";
 import { useNavigation } from "@react-navigation/native";
+import { notifySuccess, notifyError, notifyInfo } from "../utils/notify";
 
 const STORAGE_KEY = "@user_profile";
 
@@ -45,6 +46,7 @@ const HomeScreen = ({ route }) => {
   const [accessStats, setAccessStats] = useState({ canAccess: 0, pending: 0 });
   const [trackEmail, setTrackEmail] = useState("");
   const [pendingLocal, setPendingLocal] = useState([]); // local pending list (emails)
+  const [inlineErr, setInlineErr] = useState(null);
 
   const sosCooldownRef = useRef(0);
   const SHAKE_ENABLED = false; // turn off shake-to-SOS to avoid loops
@@ -164,9 +166,9 @@ const HomeScreen = ({ route }) => {
         method: "POST",
         body: { link },
       });
-      Toast.show("Location shared with guardians.", { duration: 1500 });
+      notifySuccess("Location uploaded");
     } catch {
-      Toast.show("Upload failed", { duration: 1500 });
+      notifyError("Upload failed");
     }
   };
 
@@ -208,6 +210,7 @@ const HomeScreen = ({ route }) => {
         });
       } catch {}
     }
+    notifyInfo("SOS sent");
   };
 
   const pickImage = async () => {
@@ -244,8 +247,9 @@ const HomeScreen = ({ route }) => {
   };
 
   const submitTrackRequestInline = async () => {
-    const email = trackEmail.trim();
+    const email = trackEmail.trim().toLowerCase();
     if (!email) return;
+    setInlineErr(null);
     try {
       await apiFetch("/guardian/track-request", {
         token,
@@ -255,9 +259,15 @@ const HomeScreen = ({ route }) => {
       setPendingLocal((p) => [{ email, ts: Date.now() }, ...p]);
       setTrackEmail("");
       refreshAccess();
-      Toast.show("Request sent.", { duration: 1500 });
-    } catch {
-      Toast.show("Failed to send request", { duration: 1500 });
+      notifySuccess("Request sent");
+    } catch (err) {
+      const msg = err.network
+        ? err.message
+        : err.status
+        ? `${err.status}: ${err.message}`
+        : "Failed to send request";
+      setInlineErr(msg);
+      notifyError(msg);
     }
   };
 
@@ -283,95 +293,86 @@ const HomeScreen = ({ route }) => {
         </TouchableOpacity>
       </View>
 
-      {(!user?.role || user?.role === "user") && (
+      {/* Profile (all roles) */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={pickImage}>
+          {profile.avatar ? (
+            <Image source={{ uri: profile.avatar }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person-circle-outline" size={100} color="#ccc" />
+            </View>
+          )}
+        </TouchableOpacity>
+        <Text style={styles.username}>
+          {profile.name ? profile.name : "User"}
+        </Text>
+        <TouchableOpacity style={styles.editIcon} onPress={toggleEdit}>
+          <Feather
+            name={editMode ? "check" : "edit"}
+            size={20}
+            color="#FF5A5F"
+          />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.dashboard}>
+        <Field
+          label="Name"
+          value={profile.name}
+          editable={editMode}
+          onChange={(val) => handleInputChange("name", val)}
+        />
+        <Field
+          label="Email"
+          value={profile.email}
+          editable={editMode}
+          onChange={(val) => handleInputChange("email", val)}
+        />
+        <Field
+          label="Blood Group"
+          value={profile.bloodGroup}
+          editable={editMode}
+          onChange={(val) => handleInputChange("bloodGroup", val)}
+        />
+        <Field
+          label="Phone"
+          value={profile.phone}
+          editable={editMode}
+          onChange={(val) => handleInputChange("phone", val)}
+        />
+        <Field
+          label="DOB"
+          value={profile.dob}
+          editable={editMode}
+          onChange={(val) => handleInputChange("dob", val)}
+        />
+        <Field
+          label="Address"
+          value={profile.address}
+          editable={editMode}
+          onChange={(val) => handleInputChange("address", val)}
+        />
+      </View>
+
+      {/* User-only actions */}
+      {user?.role === "user" && (
         <>
-          <Text style={styles.explain}>
-            Manage your profile, keep trusted contacts updated, and use SOS or
-            other tools from the tabs below.
-          </Text>
-          <View style={styles.header}>
-            <View style={{ paddingTop: 10 }} /> {/* Added top padding */}
-            <TouchableOpacity onPress={pickImage}>
-              {profile.avatar ? (
-                <Image source={{ uri: profile.avatar }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Ionicons
-                    name="person-circle-outline"
-                    size={100}
-                    color="#ccc"
-                  />
-                </View>
-              )}
-            </TouchableOpacity>
-            <Text style={styles.username}>
-              Welcome, {profile.name ? profile.name : "User"}
-            </Text>
-            <TouchableOpacity style={styles.editIcon} onPress={toggleEdit}>
-              <Feather
-                name={editMode ? "check" : "edit"}
-                size={20}
-                color="#FF5A5F"
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.dashboard}>
-            <Field
-              label="Name"
-              value={profile.name}
-              editable={editMode}
-              onChange={(val) => handleInputChange("name", val)}
-            />
-            <Field
-              label="Email"
-              value={profile.email}
-              editable={editMode}
-              onChange={(val) => handleInputChange("email", val)}
-            />
-            <Field
-              label="Blood Group"
-              value={profile.bloodGroup}
-              editable={editMode}
-              onChange={(val) => handleInputChange("bloodGroup", val)}
-            />
-            <Field
-              label="Phone"
-              value={profile.phone}
-              editable={editMode}
-              onChange={(val) => handleInputChange("phone", val)}
-            />
-            <Field
-              label="DOB"
-              value={profile.dob}
-              editable={editMode}
-              onChange={(val) => handleInputChange("dob", val)}
-            />
-            <Field
-              label="Address"
-              value={profile.address}
-              editable={editMode}
-              onChange={(val) => handleInputChange("address", val)}
-            />
-          </View>
-
           <TouchableOpacity style={styles.sosButton} onPress={handleSendSOS}>
             <Ionicons name="alert-circle-outline" size={28} color="#fff" />
             <Text style={styles.sosText}>Send SOS</Text>
           </TouchableOpacity>
-
-          {token && user?.role === "user" && (
-            <TouchableOpacity
-              style={[styles.sosButton, { backgroundColor: "#2e7d32" }]}
-              onPress={uploadLocationToBackend}
-            >
-              <Ionicons name="navigate" size={24} color="#fff" />
-              <Text style={styles.sosText}>Upload Location</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.sosButton, { backgroundColor: "#2e7d32" }]}
+            onPress={uploadLocationToBackend}
+          >
+            <Ionicons name="navigate" size={24} color="#fff" />
+            <Text style={styles.sosText}>Upload Location</Text>
+          </TouchableOpacity>
         </>
       )}
 
+      {/* Guardian / NGO tracking panel (unchanged core) */}
       {(user?.role === "guardian" || user?.role === "ngo") && (
         <View style={styles.guardianWrap}>
           <Text style={styles.gTitle}>
@@ -409,6 +410,7 @@ const HomeScreen = ({ route }) => {
               <Text style={styles.reqBtnText}>Request</Text>
             </TouchableOpacity>
           </View>
+          {inlineErr && <Text style={styles.inlineErr}>{inlineErr}</Text>}
 
           <TouchableOpacity
             style={styles.primaryWide}
@@ -688,6 +690,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 2,
   },
+  inlineErr: { color: "#c62828", fontSize: 11, marginTop: -8, marginBottom: 8 },
 });
 
 export default HomeScreen;

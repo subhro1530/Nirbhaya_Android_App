@@ -28,6 +28,8 @@ import IncomingTrackRequestsScreen from "../screens/IncomingTrackRequestsScreen"
 import AccessListScreen from "../screens/AccessListScreen"; // NEW
 import VisibleToScreen from "../screens/VisibleToScreen"; // NEW
 import DoctorsScreen from "../screens/DoctorsScreen"; // NEW
+import AutoLocationUploadScreen from "../screens/AutoLocationUploadScreen"; // NEW
+import UserTrackRequestsScreen from "../screens/UserTrackRequestsScreen"; // NEW
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -77,6 +79,16 @@ function MoreStackNavigator() {
         name="IncomingTrackRequests"
         component={IncomingTrackRequestsScreen}
       />
+      <MoreStack.Screen
+        name="AutoLocationUpload"
+        component={AutoLocationUploadScreen}
+      />
+      <MoreStack.Screen
+        name="UserTrackRequests"
+        component={UserTrackRequestsScreen}
+        options={{ title: "Track Requests" }}
+      />
+      {/* NEW */}
     </MoreStack.Navigator>
   );
 }
@@ -137,6 +149,16 @@ function RoleTabs() {
             }}
           />
           <Tab.Screen
+            name="UserTrackRequests"
+            component={UserTrackRequestsScreen}
+            options={{
+              title: "Requests",
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="time" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
             name="Community"
             component={CommunityScreen}
             options={{
@@ -145,15 +167,7 @@ function RoleTabs() {
               ),
             }}
           />
-          <Tab.Screen
-            name="Articles"
-            component={ArticlesScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="newspaper" size={size} color={color} />
-              ),
-            }}
-          />
+          {/* Removed Articles tab for user */}
         </>
       )}
 
@@ -179,25 +193,7 @@ function RoleTabs() {
               ),
             }}
           />
-          <Tab.Screen
-            name="IncomingTrackRequests"
-            component={IncomingTrackRequestsScreen}
-            options={{
-              title: "Pending",
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="time" size={size} color={color} />
-              ),
-            }}
-          />
-          <Tab.Screen
-            name="Articles"
-            component={ArticlesScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="newspaper" size={size} color={color} />
-              ),
-            }}
-          />
+          {/* Removed Articles tab for guardian */}
         </>
       )}
 
@@ -232,19 +228,16 @@ function RoleTabs() {
               ),
             }}
           />
-          <Tab.Screen
-            name="Articles"
-            component={ArticlesScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="newspaper" size={size} color={color} />
-              ),
-            }}
-          />
+          {/* Removed Articles tab for NGO */}
         </>
       )}
 
-      {/* More always last */}
+      {role === "admin" && (
+        <>
+          {/* Removed Articles tab for admin (Articles accessible via More) */}
+        </>
+      )}
+
       <Tab.Screen
         name="More"
         component={MoreStackNavigator}
@@ -297,7 +290,13 @@ export default function RootNavigator() {
         <Stack.Screen name="AccessList" component={AccessListScreen} />
         <Stack.Screen name="VisibleTo" component={VisibleToScreen} />
         <Stack.Screen name="Doctors" component={DoctorsScreen} />
+        <Stack.Screen
+          name="AutoLocationUpload"
+          component={AutoLocationUploadScreen}
+        />
+        {/* NEW */}
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
+         

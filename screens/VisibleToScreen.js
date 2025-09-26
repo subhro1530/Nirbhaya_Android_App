@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, FlatList, RefreshControl } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 import { apiFetch } from "../api/client";
+import { notifyError } from "../utils/notify";
 
 export default function VisibleToScreen() {
   const { token, user } = useAuth();
@@ -14,7 +15,9 @@ export default function VisibleToScreen() {
     try {
       const data = await apiFetch("/profile/me/visible-to", { token });
       setIds(data?.visibleTo || []);
-    } catch {}
+    } catch {
+      notifyError("Failed to load");
+    }
     setRefreshing(false);
   };
 

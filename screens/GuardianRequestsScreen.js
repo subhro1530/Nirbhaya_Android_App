@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,18 +9,27 @@ import {
 } from "react-native";
 import { apiFetch } from "../api/client";
 import { API_BASE, useAuth } from "../contexts/AuthContext";
+import { notifyError, notifySuccess } from "../utils/notify";
 
 export default function GuardianRequestsScreen() {
   const { token, user } = useAuth();
   const [email, setEmail] = useState("");
   const [lookupResult, setLookupResult] = useState(null);
   const [sending, setSending] = useState(false);
+  const [lastError, setLastError] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [outgoing, setOutgoing] = useState([]);
+  const [loadingOutgoing, setLoadingOutgoing] = useState(false);
+
+  const normEmail = (v) => v.trim().toLowerCase();
 
   const lookup = async () => {
-    if (!email.trim()) return;
+    const e = normEmail(email);
+    if (!e) return;
+    setLastError(null);
     try {
       const res = await fetch(
-        `${API_BASE}/users/lookup/email/${encodeURIComponent(email.trim())}`,
+        `${API_BASE}/users/lookup/email/${encodeURIComponent(e)}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (res.ok) {
@@ -28,37 +37,88 @@ export default function GuardianRequestsScreen() {
         setLookupResult(data);
       } else {
         setLookupResult(null);
-        Alert.alert("Not found");
+        setLastError(`Lookup failed (HTTP ${res.status})`);
+        Alert.alert("Not found", "User email not found or not a valid target.");
       }
-    } catch {
-      Alert.alert("Error", "Lookup failed");
+    } catch (err) {
+      setLastError("Lookup network error");
+      Alert.alert("Error", "Lookup failed (network).");
     }
   };
 
   const sendRequest = async () => {
-    if (!lookupResult && !email.trim()) return;
+    const e = normEmail(email);
+    if (!lookupResult && !e) return;
     setSending(true);
+    setLastError(null);
     try {
       const body = lookupResult
         ? { targetUserId: lookupResult.id }
-        : { targetEmail: email.trim() };
+        : { targetEmail: e };
       await apiFetch("/guardian/track-request", {
         token,
         method: "POST",
         body,
       });
-      Alert.alert("Sent", "Tracking request created.");
-    } catch {
-      Alert.alert("Error", "Could not send request");
+      notifySuccess("Request sent");
+      Alert.alert("Success", "Tracking request created.");
+      await loadOutgoing();
+    } catch (err) {
+      let msg = "Could not send request.";
+      if (err.network) msg = err.message;
+      else if (err.status) msg = `${err.status}: ${err.message}`;
+      setLastError(msg);
+      notifyError(msg);
+      Alert.alert("Error", msg);
+      // optional quick health probe to help debug
+      try {
+        setChecking(true);
+        const h = await fetch(`${API_BASE}/health`);
+        if (!h.ok) setLastError((p) => (p || "") + " | Health check failed");
+      } catch {
+        setLastError((p) => (p || "") + " | Server unreachable");
+      } finally {
+        setChecking(false);
+      }
     } finally {
       setSending(false);
     }
   };
 
+  const loadOutgoing = async () => {
+    if (!token || (user?.role !== "guardian" && user?.role !== "ngo")) return;
+    setLoadingOutgoing(true);
+    try {
+      const res = await fetch(`${API_BASE}/guardian/requests`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // sort newest first
+        const sorted = Array.isArray(data)
+          ? [...data].sort(
+              (a, b) => new Date(b.created_at) - new Date(a.created_at)
+            )
+          : [];
+        setOutgoing(sorted);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoadingOutgoing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOutgoing();
+  }, [token]);
+
   if (user?.role !== "guardian" && user?.role !== "ngo") {
     return (
       <View style={styles.center}>
-        <Text style={styles.warn}>Only guardians and NGOs can access this screen.</Text>
+        <Text style={styles.warn}>
+          Only guardians and NGOs can access this screen.
+        </Text>
       </View>
     );
   }
@@ -101,6 +161,46 @@ export default function GuardianRequestsScreen() {
           </Text>
         </View>
       )}
+      {lastError && <Text style={styles.errLine}>{lastError}</Text>}
+
+      {/* REFRESH BUTTON (always visible once component mounted) */}
+      <TouchableOpacity
+        onPress={loadOutgoing}
+        style={styles.refreshMini}
+        disabled={loadingOutgoing}
+      >
+        <Text style={styles.refreshMiniText}>
+          {loadingOutgoing ? "Refreshing..." : "Refresh List"}
+        </Text>
+      </TouchableOpacity>
+
+      {outgoing.length > 0 && (
+        <View style={styles.outList}>
+          <Text style={styles.outTitle}>Your Requests</Text>
+          {outgoing.map((r) => (
+            <View key={r.id} style={styles.outItem}>
+              <Text style={styles.outLine}>
+                To: {r.user?.id || "user"} •{" "}
+                {new Date(r.created_at).toLocaleTimeString()}
+              </Text>
+              <Text
+                style={[
+                  styles.outStatus,
+                  r.status === "approved"
+                    ? styles.txtApproved
+                    : r.status === "rejected"
+                    ? styles.txtRejected
+                    : styles.txtPending,
+                ]}
+              >
+                {r.status}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {/* NOTE: Guardians/NGOs only create requests here.
+          User approvals happen in the user requests screen. */}
     </View>
   );
 }
@@ -137,5 +237,40 @@ const styles = StyleSheet.create({
   resultText: { color: "#333", fontSize: 14 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   warn: { color: "#c62828", fontWeight: "600" },
+  errLine: {
+    marginTop: 10,
+    color: "#c62828",
+    fontSize: 12,
+    fontStyle: "italic",
+  },
+  refreshMini: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: "#FFE1E3",
+    alignSelf: "flex-start",
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  refreshMiniText: { fontSize: 11, fontWeight: "600", color: "#FF5A5F" },
+  outList: {
+    marginTop: 4,
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E6DBD2",
+    gap: 6,
+  },
+  outTitle: { fontSize: 13, fontWeight: "800", color: "#222", marginBottom: 4 },
+  outItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  outLine: { fontSize: 11, color: "#444", flexShrink: 1, marginRight: 8 },
+  outStatus: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
+  txtApproved: { color: "#2e7d32" },
+  txtRejected: { color: "#c62828" },
+  txtPending: { color: "#f39c12" },
 });
-

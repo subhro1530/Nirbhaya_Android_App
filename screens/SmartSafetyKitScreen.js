@@ -17,6 +17,7 @@ import axios from "axios";
 import { GROQ_API_KEY } from "@env";
 import { useAuth } from "../contexts/AuthContext";
 import { apiFetch } from "../api/client";
+import { notifySuccess, notifyError, notifyInfo } from "../utils/notify";
 
 export default function SmartSafetyKitScreen() {
   const [contactsText, setContactsText] = useState("");
@@ -24,13 +25,12 @@ export default function SmartSafetyKitScreen() {
   const [countdown, setCountdown] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
   const [tip, setTip] = useState("");
-  const tipIndex = useRef(0);
-
   const [location, setLocation] = useState(null);
-  const watcher = useRef(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
+  const tipIndex = useRef(0);
+  const watcher = useRef(null);
   const alertSentRef = useRef(false);
   const { token, user } = useAuth();
 
@@ -42,6 +42,7 @@ export default function SmartSafetyKitScreen() {
     "Prepare a code word with family for discreet alerts.",
   ];
 
+  // Start watching location
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -58,20 +59,22 @@ export default function SmartSafetyKitScreen() {
     return () => watcher.current?.remove();
   }, []);
 
+  // Rotate safety tips
   useEffect(() => {
+    setTip(tips[0]);
     const id = setInterval(() => {
       tipIndex.current = (tipIndex.current + 1) % tips.length;
       setTip(tips[tipIndex.current]);
     }, 7000);
-    setTip(tips[0]);
     return () => clearInterval(id);
   }, []);
 
+  // Safe timer countdown
   useEffect(() => {
     if (!timerActive) return;
     if (countdown <= 0) {
       if (!alertSentRef.current) {
-        alertSentRef.current = true; // one-shot guard
+        alertSentRef.current = true;
         setTimerActive(false);
         autoAlert();
       }
@@ -107,10 +110,7 @@ export default function SmartSafetyKitScreen() {
         ? `✅ Quick Check-In: I'm okay. My current location: ${link}`
         : `⚠️ I need help. Please check on me. Location: ${link}`;
     await SMS.sendSMSAsync(list, msg);
-    Alert.alert(
-      "Sent",
-      mode === "safe" ? "Safe check-in sent." : "Help alert sent."
-    );
+    notifySuccess(mode === "safe" ? "Check-in sent" : "Help alert sent");
   };
 
   const startSafeTimer = () => {
@@ -121,7 +121,8 @@ export default function SmartSafetyKitScreen() {
       return Alert.alert("Contacts", "Add contacts first.");
     setCountdown(mins * 60);
     setTimerActive(true);
-    alertSentRef.current = false; // reset guard on new timer
+    alertSentRef.current = false;
+    notifySuccess("Safe timer active");
     Alert.alert(
       "Safe Timer Active",
       `If you don't cancel in ${mins} minute(s), an alert will be sent.`
@@ -131,7 +132,8 @@ export default function SmartSafetyKitScreen() {
   const cancelSafeTimer = () => {
     setTimerActive(false);
     setCountdown(0);
-    alertSentRef.current = false; // reset guard
+    alertSentRef.current = false;
+    notifyInfo("Safe timer cancelled");
   };
 
   const autoAlert = async () => {
@@ -140,13 +142,12 @@ export default function SmartSafetyKitScreen() {
     const link = await getLocationLink();
     const msg = `⏰ Safe Timer expired. Please reach me ASAP. Last known location: ${link}`;
     await SMS.sendSMSAsync(list, msg);
-    Alert.alert("Auto Alert Sent", "Safe timer alert delivered.");
-
+    notifySuccess("Auto alert sent");
     if (token && user?.role === "user") {
       try {
         await apiFetch("/location/upload", {
           token,
-          method: "POST",
+            method: "POST",
           body: { link },
         });
       } catch {}
@@ -178,7 +179,7 @@ export default function SmartSafetyKitScreen() {
         }
       );
       const botReply =
-        res.data?.choices?.[0]?.message?.content ??
+        res.data?.choices?.[0]?.message?.content ||
         "Stay aware. If urgent, use SOS.";
       setMessages([...updated, { role: "assistant", content: botReply }]);
     } catch (e) {
@@ -189,6 +190,7 @@ export default function SmartSafetyKitScreen() {
           content: "I couldn't respond right now. Try again shortly.",
         },
       ]);
+      notifyError("Assistant unavailable");
     }
   };
 
@@ -199,12 +201,11 @@ export default function SmartSafetyKitScreen() {
     >
       <Text style={styles.title}>Smart Safety Kit</Text>
       <Text style={styles.explain}>
-        This kit puts safety tools at your fingertips: quick check-ins, an auto
-        Safe Timer, live map tracking, and a helper chatbot for guidance.
+        This kit puts safety tools at your fingertips: quick check-ins, Safe
+        Timer, live map tracking, and a helper chatbot for guidance.
       </Text>
       <Text style={styles.tip}>💡 {tip}</Text>
 
-      {/* Live Map (follows user) */}
       <View style={styles.mapWrap}>
         <MapView
           style={styles.map}
@@ -233,7 +234,6 @@ export default function SmartSafetyKitScreen() {
         </MapView>
       </View>
 
-      {/* Quick Contacts */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Contacts</Text>
         <TextInput
@@ -259,7 +259,6 @@ export default function SmartSafetyKitScreen() {
         </View>
       </View>
 
-      {/* Safe Timer */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Safe Timer</Text>
         <TextInput
@@ -297,12 +296,11 @@ export default function SmartSafetyKitScreen() {
         )}
       </View>
 
-      {/* Mini Chatbot */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Helper Chat</Text>
         <FlatList
           data={messages}
-          keyExtractor={(_, i) => String(i)}
+            keyExtractor={(_, i) => String(i)}
           contentContainerStyle={{ gap: 6, paddingBottom: 80 }}
           renderItem={({ item }) => (
             <View
@@ -343,14 +341,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFF6F0",
     paddingHorizontal: 16,
-    paddingTop: 48, // more top margin
+    paddingTop: 48,
   },
-  title: {
-    fontSize: 24,
-    color: "#222",
-    textAlign: "center",
-    fontWeight: "800",
-  },
+  title: { fontSize: 24, color: "#222", textAlign: "center", fontWeight: "800" },
   explain: {
     color: "#555",
     fontSize: 12,
@@ -414,9 +407,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginTop: 8,
-    position: "absolute",
-    bottom: 10,
-    left: 10,
-    right: 10,
   },
 });

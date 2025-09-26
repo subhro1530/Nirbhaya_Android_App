@@ -95,10 +95,40 @@ export default function MoreScreen({ navigation }) {
     );
   } else if (user?.role === "user") {
     rows.unshift({
+      label: "Track Requests",
+      desc: "Approve / reject guardian access",
+      screen: "UserTrackRequests", // changed from IncomingTrackRequests
+    });
+    rows.unshift({
+      label: "Auto Location Upload",
+      desc: "Upload to server every interval",
+      screen: "AutoLocationUpload",
+    });
+    rows.unshift({
       label: "Who Can See Me",
       desc: "Guardians with access",
       screen: "VisibleTo",
     });
+  } else if (user?.role === "admin") {
+    rows.splice(
+      0,
+      rows.length,
+      {
+        label: "Articles",
+        desc: "Review safety & rights content",
+        screen: "Articles",
+      },
+      {
+        label: "Emergency Map",
+        desc: "Critical facilities",
+        screen: "EmergencyMap",
+      },
+      {
+        label: "Smart Safety Kit",
+        desc: "Assist users in emergencies",
+        screen: "SmartSafetyKit",
+      }
+    );
   }
 
   const logout = async () => {
