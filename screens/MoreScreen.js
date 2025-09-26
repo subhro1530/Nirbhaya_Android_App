@@ -7,8 +7,11 @@ import {
   ScrollView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function MoreScreen({ navigation }) {
+  const { user, signOut } = useAuth();
+
   const rows = [
     {
       label: "Emergency Map",
@@ -70,7 +73,37 @@ export default function MoreScreen({ navigation }) {
     icon: icons[idx] || "🔹",
   }));
 
+  const baseRows = [...rows]; // preserve
+  // inject role-specific minimal set
+  if (user?.role === "guardian" || user?.role === "ngo") {
+    rows.splice(
+      0,
+      rows.length,
+      {
+        label: "Tracked Users",
+        desc: "Approved users & locations",
+        screen: "AccessList",
+      },
+      {
+        label: "Send Track Request",
+        desc: "Request access by email",
+        screen: "GuardianRequests",
+      },
+      ...(user.role === "ngo"
+        ? [{ label: "Doctors", desc: "Manage NGO doctors", screen: "Doctors" }]
+        : [])
+    );
+  } else if (user?.role === "user") {
+    rows.unshift({
+      label: "Who Can See Me",
+      desc: "Guardians with access",
+      screen: "VisibleTo",
+    });
+  }
+
   const logout = async () => {
+    await signOut();
+
     try {
       await AsyncStorage.multiRemove([
         "@user_profile",
@@ -156,5 +189,3 @@ const styles = StyleSheet.create({
   },
   logoutText: { color: "#fff", fontWeight: "800" },
 });
-
-

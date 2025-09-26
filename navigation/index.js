@@ -5,6 +5,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../contexts/AuthContext";
 
 // Screens
 import LoginScreen from "../screens/LoginScreen";
@@ -22,6 +23,11 @@ import SmartSafetyKitScreen from "../screens/SmartSafetyKitScreen";
 import CommunityScreen from "../screens/CommunityScreen"; // NEW
 import AnonymousCommunityScreen from "../screens/AnonymousCommunityScreen"; // NEW
 import SelfDefenseWorkshopsScreen from "../screens/SelfDefenseWorkshopsScreen"; // NEW
+import GuardianRequestsScreen from "../screens/GuardianRequestsScreen"; // NEW
+import IncomingTrackRequestsScreen from "../screens/IncomingTrackRequestsScreen"; // NEW
+import AccessListScreen from "../screens/AccessListScreen"; // NEW
+import VisibleToScreen from "../screens/VisibleToScreen"; // NEW
+import DoctorsScreen from "../screens/DoctorsScreen"; // NEW
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -37,7 +43,10 @@ function MoreStackNavigator() {
         headerStyle: { backgroundColor: "#FFF6F0" },
       }}
     >
-      <MoreStack.Screen name="Other Nirbhaya Facilities" component={MoreScreen} />
+      <MoreStack.Screen
+        name="Other Nirbhaya Facilities"
+        component={MoreScreen}
+      />
       <MoreStack.Screen name="Context" component={ContextScreen} />
       {/* NEW */}
       <MoreStack.Screen name="Community" component={CommunityScreen} />
@@ -51,12 +60,23 @@ function MoreStackNavigator() {
         component={SelfDefenseWorkshopsScreen}
         options={{ title: "Workshops" }}
       />
+      <MoreStack.Screen name="EmergencyMap" component={EmergencyMapScreen} />
+      <MoreStack.Screen name="WalkMode" component={WalkModeScreen} />
+      <MoreStack.Screen name="SmartSafetyKit" component={SmartSafetyKitScreen} />
+      <MoreStack.Screen name="GuardianRequests" component={GuardianRequestsScreen} />
+      <MoreStack.Screen name="AccessList" component={AccessListScreen} />
+      <MoreStack.Screen name="VisibleTo" component={VisibleToScreen} />
+      <MoreStack.Screen name="Doctors" component={DoctorsScreen} />
+      <MoreStack.Screen name="IncomingTrackRequests" component={IncomingTrackRequestsScreen} />
     </MoreStack.Navigator>
   );
 }
 
-// Main Tab Navigator
-function MainTabs() {
+// Role-aware tabs
+function RoleTabs() {
+  const { user } = useAuth();
+  const role = user?.role;
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -83,47 +103,139 @@ function MainTabs() {
         }}
       />
 
-      <Tab.Screen
-        name="Chat"
-        component={ChatbotScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-ellipses" size={size} color={color} />
-          ),
-        }}
-      />
+      {role === "user" && (
+        <>
+          <Tab.Screen
+            name="Chat"
+            component={ChatbotScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons
+                  name="chatbubble-ellipses"
+                  size={size}
+                  color={color}
+                />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Trusted"
+            component={TrustedContactsScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="people" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Community"
+            component={CommunityScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="people-circle" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Articles"
+            component={ArticlesScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="newspaper" size={size} color={color} />
+              ),
+            }}
+          />
+        </>
+      )}
 
-      <Tab.Screen
-        name="Articles"
-        component={ArticlesScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="newspaper" size={size} color={color} />
-          ),
-        }}
-      />
+      {role === "guardian" && (
+        <>
+          <Tab.Screen
+            name="AccessList"
+            component={AccessListScreen}
+            options={{
+              title: "Access",
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="locate" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="GuardianRequests"
+            component={GuardianRequestsScreen}
+            options={{
+              title: "Requests",
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="person-add" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="IncomingTrackRequests"
+            component={IncomingTrackRequestsScreen}
+            options={{
+              title: "Pending",
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="time" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Articles"
+            component={ArticlesScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="newspaper" size={size} color={color} />
+              ),
+            }}
+          />
+        </>
+      )}
 
-      <Tab.Screen
-        name="Trusted"
-        component={TrustedContactsScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={size} color={color} />
-          ),
-        }}
-      />
+      {role === "ngo" && (
+        <>
+          <Tab.Screen
+            name="AccessList"
+            component={AccessListScreen}
+            options={{
+              title: "Access",
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="locate" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="GuardianRequests"
+            component={GuardianRequestsScreen}
+            options={{
+              title: "Requests",
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="person-add" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Doctors"
+            component={DoctorsScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="medkit" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Articles"
+            component={ArticlesScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="newspaper" size={size} color={color} />
+              ),
+            }}
+          />
+        </>
+      )}
 
-      {/* Replace Content with Community */}
-      <Tab.Screen
-        name="Community"
-        component={CommunityScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-circle" size={size} color={color} />
-          ),
-        }}
-      />
-
+      {/* More always last */}
       <Tab.Screen
         name="More"
         component={MoreStackNavigator}
@@ -137,31 +249,33 @@ function MainTabs() {
   );
 }
 
+// Main Tabs
+function MainTabs() {
+  return <RoleTabs />;
+}
+
 // Main App Navigator
 export default function RootNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        screenOptions={{
-          headerShown: false, // Tab stack manages headers
-        }}
-        initialRouteName="Home"
+        screenOptions={{ headerShown: false }}
+        initialRouteName="Login" // was "Home"
       >
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="Home" component={MainTabs} />
+        {/* Direct access fallback for deep links or navigation pushes */}
         <Stack.Screen name="EmergencyMap" component={EmergencyMapScreen} />
         <Stack.Screen name="WalkMode" component={WalkModeScreen} />
         <Stack.Screen name="SmartSafetyKit" component={SmartSafetyKitScreen} />
-        {/* allow direct stack access */}
-        <Stack.Screen
-          name="AnonymousCommunity"
-          component={AnonymousCommunityScreen}
-        />
-        <Stack.Screen
-          name="SelfDefenseWorkshops"
-          component={SelfDefenseWorkshopsScreen}
-        />
+        <Stack.Screen name="AnonymousCommunity" component={AnonymousCommunityScreen} />
+        <Stack.Screen name="SelfDefenseWorkshops" component={SelfDefenseWorkshopsScreen} />
+        <Stack.Screen name="GuardianRequests" component={GuardianRequestsScreen} />
+        <Stack.Screen name="IncomingTrackRequests" component={IncomingTrackRequestsScreen} />
+        <Stack.Screen name="AccessList" component={AccessListScreen} />
+        <Stack.Screen name="VisibleTo" component={VisibleToScreen} />
+        <Stack.Screen name="Doctors" component={DoctorsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

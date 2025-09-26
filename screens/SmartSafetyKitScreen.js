@@ -15,6 +15,8 @@ import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
 import axios from "axios";
 import { GROQ_API_KEY } from "@env";
+import { useAuth } from "../contexts/AuthContext";
+import { apiFetch } from "../api/client";
 
 export default function SmartSafetyKitScreen() {
   const [contactsText, setContactsText] = useState("");
@@ -30,6 +32,7 @@ export default function SmartSafetyKitScreen() {
   const [input, setInput] = useState("");
 
   const alertSentRef = useRef(false);
+  const { token, user } = useAuth();
 
   const tips = [
     "Share your route with a trusted friend before starting.",
@@ -138,6 +141,16 @@ export default function SmartSafetyKitScreen() {
     const msg = `⏰ Safe Timer expired. Please reach me ASAP. Last known location: ${link}`;
     await SMS.sendSMSAsync(list, msg);
     Alert.alert("Auto Alert Sent", "Safe timer alert delivered.");
+
+    if (token && user?.role === "user") {
+      try {
+        await apiFetch("/location/upload", {
+          token,
+          method: "POST",
+          body: { link },
+        });
+      } catch {}
+    }
   };
 
   const sendBotMessage = async () => {
