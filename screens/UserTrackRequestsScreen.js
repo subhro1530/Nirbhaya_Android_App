@@ -12,6 +12,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { apiFetch } from "../api/client";
 import { notifySuccess, notifyError } from "../utils/notify";
 import { useFocusEffect } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 
 export default function UserTrackRequestsScreen() {
   const { token, user } = useAuth();
@@ -20,6 +21,7 @@ export default function UserTrackRequestsScreen() {
   const [loadingAct, setLoadingAct] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [autoCycle, setAutoCycle] = useState(0); // trigger re-load loop
+  const navigation = useNavigation();
 
   const load = useCallback(
     async (silent = false) => {
@@ -171,10 +173,30 @@ export default function UserTrackRequestsScreen() {
       <View
         style={{
           flexDirection: "row",
-          justifyContent: "flex-end",
+          justifyContent: "space-between",
           marginBottom: 8,
+          gap: 8,
         }}
       >
+        <TouchableOpacity
+          onPress={() => navigation.navigate("SosLog")}
+          style={{
+            backgroundColor: "#FF5A5F",
+            paddingHorizontal: 14,
+            paddingVertical: 6,
+            borderRadius: 14,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: "700",
+              color: "#fff",
+            }}
+          >
+            SOS Log
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={load}
           style={{
@@ -275,3 +297,4 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   warn: { color: "#c62828", fontWeight: "700" },
 });
+// NOTE: SosLog navigation now valid because SosLog screen registered in navigation.

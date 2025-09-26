@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useContext, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useContext,
+  useRef,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
@@ -23,6 +29,7 @@ import { useNavigation } from "@react-navigation/native";
 import { notifySuccess, notifyError, notifyInfo } from "../utils/notify";
 
 const STORAGE_KEY = "@user_profile";
+const SOS_LOG_KEY = "@sos_local_logs";
 
 const HomeScreen = ({ route }) => {
   const defaultEmail = route?.params?.email || "user@gmail.com";
@@ -51,6 +58,12 @@ const HomeScreen = ({ route }) => {
   const [lastUploadAt, setLastUploadAt] = useState(null);
   const [verifyingUpload, setVerifyingUpload] = useState(false);
   const [uploadingLocation, setUploadingLocation] = useState(false);
+
+  const [autoMinutes, setAutoMinutes] = useState("10");
+  const [autoEnabled, setAutoEnabled] = useState(false);
+  const [autoCountdown, setAutoCountdown] = useState(0);
+  const autoTimerRef = useRef(null);
+  const autoUploadingRef = useRef(false);
 
   const sosCooldownRef = useRef(0);
   const SHAKE_ENABLED = false; // turn off shake-to-SOS to avoid loops
@@ -217,7 +230,6 @@ const HomeScreen = ({ route }) => {
   };
 
   const handleSendSOS = async () => {
-    // cooldown guard for any accidental loops
     const now = Date.now();
     if (now - sosCooldownRef.current < 15000) return;
     sosCooldownRef.current = now;
@@ -229,7 +241,9 @@ const HomeScreen = ({ route }) => {
 
     const { latitude, longitude } = location;
     const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
-    const message = `🚨 SOS Alert!\nI need help!\nHere is my location: ${mapsLink}`;
+    const note = "Mobile SOS";
+    const emergency_type = "general";
+    const message = `🚨 SOS Alert!\nI need help!\n${note}\nLocation: ${mapsLink}`;
 
     if (contacts.length === 0) {
       alert("No trusted contacts found. Please add some.");
@@ -237,23 +251,55 @@ const HomeScreen = ({ route }) => {
     }
 
     const numbers = contacts.map((c) => c.phone);
-
-    const isAvailable = await SMS.isAvailableAsync();
-    if (isAvailable) {
-      await SMS.sendSMSAsync(numbers, message);
-    } else {
-      alert("SMS is not available on this device.");
+    try {
+      const isAvailable = await SMS.isAvailableAsync();
+      if (isAvailable) {
+        await SMS.sendSMSAsync(numbers, message);
+      } else {
+        alert("SMS is not available on this device.");
+      }
+    } catch {
+      // ignore SMS failure (still log)
     }
 
+    let serverData = null;
     if (token && user?.role === "user") {
       try {
-        await apiFetch("/sos", {
+        // new endpoint
+        serverData = await apiFetch("/sos/create", {
           token,
           method: "POST",
-          body: { note: "Mobile SOS", emergency_type: "general" },
+          body: { note, emergency_type },
         });
-      } catch {}
+      } catch {
+        // fallback to legacy (best-effort)
+        try {
+          serverData = await apiFetch("/sos", {
+            token,
+            method: "POST",
+            body: { note, emergency_type },
+          });
+        } catch {
+          /* swallow */
+        }
+      }
     }
+
+    // persist locally
+    try {
+      const raw = await AsyncStorage.getItem(SOS_LOG_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      arr.unshift({
+        id: serverData?.id || `local-${Date.now()}`,
+        note,
+        emergency_type,
+        active: serverData?.active !== false,
+        created_at: serverData?.created_at || new Date().toISOString(),
+        source: serverData ? "server" : "local",
+      });
+      await AsyncStorage.setItem(SOS_LOG_KEY, JSON.stringify(arr.slice(0, 50)));
+    } catch {}
+
     notifyInfo("SOS sent");
   };
 
@@ -318,6 +364,75 @@ const HomeScreen = ({ route }) => {
   const doLogout = async () => {
     await signOut();
     navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+  };
+
+  // helper used by auto timer (silent upload)
+  const autoUploadOnce = useCallback(async () => {
+    if (!token || user?.role !== "user") return;
+    if (autoUploadingRef.current) return;
+    autoUploadingRef.current = true;
+    try {
+      const fg = await Location.requestForegroundPermissionsAsync();
+      if (fg.status !== "granted") {
+        notifyError("Auto upload: permission denied");
+        setAutoEnabled(false);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      if (!loc?.coords) return;
+      const link = `https://maps.google.com/?q=${loc.coords.latitude},${loc.coords.longitude}`;
+      await apiFetch("/location/upload", {
+        token,
+        method: "POST",
+        body: { link },
+      });
+      // only toast subtly every cycle
+      notifySuccess("Auto location uploaded");
+      setLastUploadAt(new Date().toISOString());
+    } catch {
+      notifyError("Auto upload failed");
+    } finally {
+      autoUploadingRef.current = false;
+    }
+  }, [token, user, setLastUploadAt]);
+
+  // manage countdown & interval
+  useEffect(() => {
+    if (!autoEnabled) {
+      if (autoTimerRef.current) clearInterval(autoTimerRef.current);
+      return;
+    }
+    if (autoCountdown === 0) {
+      // trigger upload and reset countdown
+      autoUploadOnce();
+      const mins = parseInt(autoMinutes) || 1;
+      setAutoCountdown(mins * 60);
+    }
+    autoTimerRef.current = setInterval(() => {
+      setAutoCountdown((c) => (c > 0 ? c - 1 : 0));
+    }, 1000);
+    return () => {
+      if (autoTimerRef.current) clearInterval(autoTimerRef.current);
+    };
+  }, [autoEnabled, autoCountdown, autoMinutes, autoUploadOnce]);
+
+  const toggleAuto = () => {
+    if (!autoEnabled) {
+      const mins = parseInt(autoMinutes);
+      if (isNaN(mins) || mins <= 0) {
+        notifyError("Enter valid minutes for auto upload");
+        return;
+      }
+      setAutoCountdown(mins * 60);
+      setAutoEnabled(true);
+      notifyInfo("Auto location upload started");
+    } else {
+      setAutoEnabled(false);
+      setAutoCountdown(0);
+      notifyInfo("Auto location upload stopped");
+    }
   };
 
   return (
@@ -445,6 +560,42 @@ const HomeScreen = ({ route }) => {
                 {verifyingUpload ? "Verifying..." : "Verify Last Upload"}
               </Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Auto Upload Timer (Inline) */}
+          <View style={styles.autoBox}>
+            <Text style={styles.autoTitle}>Auto Upload</Text>
+            <View style={styles.autoRow}>
+              <TextInput
+                style={styles.autoInput}
+                placeholder="mins"
+                placeholderTextColor="#888"
+                keyboardType="numeric"
+                value={autoMinutes}
+                onChangeText={setAutoMinutes}
+                editable={!autoEnabled}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.autoToggleBtn,
+                  { backgroundColor: autoEnabled ? "#c62828" : "#2e7d32" },
+                ]}
+                onPress={toggleAuto}
+              >
+                <Text style={styles.autoToggleTxt}>
+                  {autoEnabled ? "Stop" : "Start"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {autoEnabled && (
+              <Text style={styles.autoCountdown}>
+                Next upload in:{" "}
+                {Math.floor(autoCountdown / 60)
+                  .toString()
+                  .padStart(2, "0")}
+                :{(autoCountdown % 60).toString().padStart(2, "0")}
+              </Text>
+            )}
           </View>
         </>
       )}
@@ -768,6 +919,47 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   inlineErr: { color: "#c62828", fontSize: 11, marginTop: -8, marginBottom: 8 },
+  autoBox: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E6DBD2",
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 26,
+    marginTop: -4,
+  },
+  autoTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#222",
+    marginBottom: 8,
+  },
+  autoRow: { flexDirection: "row", gap: 10 },
+  autoInput: {
+    flex: 1,
+    backgroundColor: "#FFF6F0",
+    borderWidth: 1,
+    borderColor: "#E6DBD2",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 44,
+    color: "#333",
+    fontSize: 14,
+  },
+  autoToggleBtn: {
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    height: 44,
+  },
+  autoToggleTxt: { color: "#fff", fontWeight: "700", fontSize: 12 },
+  autoCountdown: {
+    marginTop: 8,
+    fontSize: 12,
+    color: "#555",
+    fontWeight: "600",
+  },
 });
 
 export default HomeScreen;

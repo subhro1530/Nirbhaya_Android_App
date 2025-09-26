@@ -30,6 +30,7 @@ import VisibleToScreen from "../screens/VisibleToScreen"; // NEW
 import DoctorsScreen from "../screens/DoctorsScreen"; // NEW
 import AutoLocationUploadScreen from "../screens/AutoLocationUploadScreen"; // NEW
 import UserTrackRequestsScreen from "../screens/UserTrackRequestsScreen"; // NEW
+import SosLogScreen from "../screens/SosLogScreen"; // NEW
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -87,6 +88,11 @@ function MoreStackNavigator() {
         name="UserTrackRequests"
         component={UserTrackRequestsScreen}
         options={{ title: "Track Requests" }}
+      />
+      <MoreStack.Screen
+        name="SosLog"
+        component={SosLogScreen}
+        options={{ title: "My SOS Log" }}
       />
       {/* NEW */}
     </MoreStack.Navigator>
@@ -294,9 +300,9 @@ export default function RootNavigator() {
           name="AutoLocationUpload"
           component={AutoLocationUploadScreen}
         />
+        <Stack.Screen name="SosLog" component={SosLogScreen} />
         {/* NEW */}
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
-         

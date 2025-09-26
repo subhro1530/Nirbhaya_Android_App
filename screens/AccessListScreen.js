@@ -210,7 +210,8 @@ export default function AccessListScreen() {
         if (j?.link) {
           stored = {
             link: j.link,
-            updated_at: j.recorded_at || j.updated_at || new Date().toISOString(),
+            updated_at:
+              j.recorded_at || j.updated_at || new Date().toISOString(),
           };
         } else if (j?.lat && j?.lng) {
           // build link if only coords present
@@ -230,6 +231,71 @@ export default function AccessListScreen() {
     setLocationMap((p) => ({ ...p, [uid]: stored }));
   };
 
+  const fetchLastSOS = async (userId) => {
+    setSosDetails((prev) => ({
+      ...prev,
+      [userId]: {
+        ...(prev[userId] || {}),
+        loading: true,
+        error: null,
+        expanded: true,
+      },
+    }));
+    try {
+      let latest = null;
+      if (user?.role === "guardian" || user?.role === "ngo") {
+        const list = await apiFetch("/sos/all", { token });
+        if (Array.isArray(list)) {
+          latest =
+            list
+              .filter((a) => a.user_id === userId)
+              .sort(
+                (a, b) => new Date(b.created_at) - new Date(a.created_at)
+              )[0] || null;
+        }
+      } else if (user?.role === "user" && user?.id === userId) {
+        const mine = await apiFetch("/sos/mine", { token });
+        if (Array.isArray(mine) && mine.length) {
+          latest = [...mine].sort(
+            (a, b) => new Date(b.created_at) - new Date(a.created_at)
+          )[0];
+        }
+      }
+      setSosDetails((prev) => ({
+        ...prev,
+        [userId]: {
+          ...(prev[userId] || {}),
+          loading: false,
+          data: latest || null,
+          error: latest ? null : "No SOS found",
+          expanded: true,
+        },
+      }));
+    } catch (e) {
+      setSosDetails((prev) => ({
+        ...prev,
+        [userId]: {
+          ...(prev[userId] || {}),
+          loading: false,
+          data: null,
+          error: "Failed to fetch SOS",
+          expanded: true,
+        },
+      }));
+    }
+  };
+
+  const toggleSOS = (userId) => {
+    setSosDetails((prev) => {
+      const cur = prev[userId];
+      if (!cur) {
+        fetchLastSOS(userId);
+        return { ...prev, [userId]: { loading: true, expanded: true } };
+      }
+      return { ...prev, [userId]: { ...cur, expanded: !cur.expanded } };
+    });
+  };
+
   // CARD RENDER
   const renderUser = ({ item }) => {
     const status = statusMap[item.id] || "approved";
@@ -242,9 +308,7 @@ export default function AccessListScreen() {
             <Text style={styles.uid}>{item.name ? item.name : "User"}</Text>
             {!!item.email && <Text style={styles.metaSmall}>{item.email}</Text>}
           </View>
-          <View
-            style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-          >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <View
               style={[
                 styles.statusChip,
@@ -284,8 +348,12 @@ export default function AccessListScreen() {
           </>
         )}
         {!loc && <Text style={styles.meta}>No location fetched yet.</Text>}
-        {loc && loc.loading && <Text style={styles.meta}>Fetching location...</Text>}
-        {loc === null && <Text style={styles.meta}>No location uploaded yet.</Text>}
+        {loc && loc.loading && (
+          <Text style={styles.meta}>Fetching location...</Text>
+        )}
+        {loc === null && (
+          <Text style={styles.meta}>No location uploaded yet.</Text>
+        )}
 
         <View style={styles.actionRow}>
           <TouchableOpacity
@@ -602,4 +670,3 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
-  
