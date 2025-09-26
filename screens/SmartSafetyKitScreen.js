@@ -7,6 +7,8 @@ import {
   Alert,
   TextInput,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import * as SMS from "expo-sms";
 import * as Location from "expo-location";
@@ -178,7 +180,10 @@ export default function SmartSafetyKitScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       <Text style={styles.title}>Smart Safety Kit</Text>
       <Text style={styles.explain}>
         This kit puts safety tools at your fingertips: quick check-ins, an auto
@@ -285,7 +290,7 @@ export default function SmartSafetyKitScreen() {
         <FlatList
           data={messages}
           keyExtractor={(_, i) => String(i)}
-          contentContainerStyle={{ gap: 6 }}
+          contentContainerStyle={{ gap: 6, paddingBottom: 80 }}
           renderItem={({ item }) => (
             <View
               style={[
@@ -316,7 +321,7 @@ export default function SmartSafetyKitScreen() {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -392,5 +397,13 @@ const styles = StyleSheet.create({
   userMsg: { alignSelf: "flex-end", backgroundColor: "#FFE1E3" },
   botMsg: { alignSelf: "flex-start", backgroundColor: "#F4F0EB" },
   msgText: { color: "#333", fontSize: 14 },
-  chatRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },
+  chatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    right: 10,
+  },
 });
